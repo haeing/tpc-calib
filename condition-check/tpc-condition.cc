@@ -2,7 +2,7 @@
 
 const int start_run = 2264;
 //const int end_run = 3043;
-const int end_run = 2264;
+const int end_run = 3835;
 
 const int evt_ave = 100;
 
@@ -24,7 +24,7 @@ void tpc_condition(){
   TDatime now;
   p->AddText(Form("Generated at: %04d-%02d-%02d %02d:%02d:%02d",now.GetYear(),now.GetMonth(),now.GetDay(),now.GetHour(),now.GetMinute(),now.GetSecond()));
   p->Draw();
-  c1->Print((outpdf_hit + "(").c_str());
+  //c1->Print((outpdf_hit + "(").c_str());
   
 
   auto c2 = new TCanvas("c2","c2");
@@ -37,7 +37,7 @@ void tpc_condition(){
   p1->AddText("TPC RMS check per AsAd");
   p1->AddText(Form("Generated at: %04d-%02d-%02d %02d:%02d:%02d",now.GetYear(),now.GetMonth(),now.GetDay(),now.GetHour(),now.GetMinute(),now.GetSecond()));
   p1->Draw();
-  c2->Print((outpdf_rms + "(").c_str());
+  //c2->Print((outpdf_rms + "(").c_str());
     
 
   int current_run;
@@ -123,17 +123,21 @@ void tpc_condition(){
       plotPad_rms->cd(i+1);
       hist_rms[i]->Draw("colz");
     }
+    /*
     if(run == end_run)c1->Print((outpdf_hit + ")").c_str());
     else{c1->Print(outpdf_hit.c_str());}
 
     if(run == end_run)c2->Print((outpdf_rms + ")").c_str());
     else{c2->Print(outpdf_rms.c_str());}
+    */
     f->Close();
   }
+  /*
   if(current_run !=end_run){
     c1->Print((outpdf_hit + ")").c_str());
     c2->Print((outpdf_rms + ")").c_str());
   }
+  */
   
   
   
