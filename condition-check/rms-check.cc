@@ -5,13 +5,6 @@ const int run[16]={2264,2408,2449,2487,2651,2686,2818,2836,2842,2893,2940,2979,3
 void rms_check(){
   
   auto c1 = new TCanvas("c1","c1");
-  string outpdf_rms = "result/tpc-condition-rms.pdf";
-    TPaveText *p = new TPaveText(0.1,0.1,0.9,0.9,"NDC");
-    p->AddText("TPC RMS check per AsAd");
-    TDatime now;
-    p->AddText(Form("Generated at: %04d-%02d-%02d %02d:%02d:%02d",now.GetYear(),now.GetMonth(),now.GetDay(),now.GetHour(),now.GetMinute(),now.GetSecond()));
-    p->Draw();
-    c1->Print((outpdf_rms + "(").c_str());
     
   for(int nrun = 0;nrun<16;nrun++){
     int runnumber = run[nrun];
@@ -38,20 +31,16 @@ void rms_check(){
       hist_rms[i]->Draw("colz");
     }
 
-    
-    c1->Print(outpdf_rms.c_str());
+    c1->SaveAs(Form("result/rms-run0%d.png",runnumber));
+    //file->Close();
+    delete plotPad_rms;
+    delete titlePad;
     for(int i=0;i<NumOfAsadTPC;i++){
-      hist_rms[i]->SetDirectory(0);
       delete hist_rms[i];
       
     }
 
     
   }
-
-  c1->Clear();
-  c1->Print((outpdf_rms+")").c_str());
-  
-  
   
 }
