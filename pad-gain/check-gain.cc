@@ -57,6 +57,7 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260616")
 
         if(aty == 0){
           int padid = tpc::GetPadId(layer, row);
+	  cout<<padid+1<<" : "<<p1<<endl;
 	  hGain->SetBinContent(padid+1, 200.0 / p1);
         }
 
