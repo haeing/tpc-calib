@@ -29,6 +29,10 @@ void rms_check(){
       hist_rms[i] = (TH2D*)file->Get(Form("hist_rms%d",i));
       plotPad_rms->cd(i+1);
       hist_rms[i]->Draw("colz");
+      TH1D *hy = hist_rms[i]->ProjectionY();
+      int rms_cut = hy->FindBin(5.);
+      double rms0 = hy->Integral(0,rms_cut-1);
+      double rms_normal = hy->Integral(rms_cut+1,hy->GetNbinsX());
     }
 
     c1->SaveAs(Form("result/rms-run0%d.png",runnumber));

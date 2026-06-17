@@ -11,7 +11,8 @@ void htofcalib_padgain(int runnumber){
 
   vector<double>* mom0 = nullptr;
   vector<double>* dEdx = nullptr;
-  
+
+  /*
   int nclTpc;
   vector<double>* cluster_de = nullptr;
   vector<double>* cluster_layer = nullptr;
@@ -19,7 +20,7 @@ void htofcalib_padgain(int runnumber){
   vector<double>* cluster_y_center = nullptr;
   vector<double>* cluster_z_center = nullptr;
   vector<double>* cluster_row_center = nullptr;
-
+  */
   int ntTpc;
   vector<int>* nhtrack = nullptr;
   vector<vector<double>>* hitlayer = nullptr;
@@ -30,7 +31,7 @@ void htofcalib_padgain(int runnumber){
   vector<vector<double>>* track_cluster_mrow = nullptr;
   vector<vector<double>>* track_cluster_row_center = nullptr;
   
-
+  /*
   tree->SetBranchAddress("nclTpc",&nclTpc);
   tree->SetBranchAddress("cluster_de",&cluster_de);
   tree->SetBranchAddress("cluster_layer",&cluster_layer);
@@ -38,7 +39,8 @@ void htofcalib_padgain(int runnumber){
   tree->SetBranchAddress("cluster_y_center",&cluster_y_center);
   tree->SetBranchAddress("cluster_z_center",&cluster_z_center);
   tree->SetBranchAddress("cluster_row_center",&cluster_row_center);
-
+  */
+  
   tree->SetBranchAddress("ntTpc",&ntTpc);
   tree->SetBranchAddress("mom0",&mom0);
   tree->SetBranchAddress("dEdx",&dEdx);
@@ -115,6 +117,7 @@ void htofcalib_padgain(int runnumber){
     
     
     if(n%1000 == 0)cout<<n<<endl;
+    /*
     for(int i=0;i<nclTpc;i++){
       int padid = tpc::GetPadId((*cluster_layer)[i],(*cluster_row_center)[i]);
       //if((*cluster_de)[i]>100 && (*cluster_y_center)[i] > -50 && (*cluster_y_center)[i] < 50){
@@ -122,6 +125,7 @@ void htofcalib_padgain(int runnumber){
 	TPC_cluster->SetBinContent(padid+1,cnt+1);
 	//}
     }
+    */
     for(int i=0;i<ntTpc;i++){
       TPC_pid->Fill((*mom0)[i],(*dEdx)[i]);
       hist_dedx->Fill((*dEdx)[i]);

@@ -2,7 +2,7 @@
 
 void update_gainparam(
     const char* param_in  = "param_history/TPCParam_e72_20260523",
-    const char* rootfile  = "result/padgain-fillpad-260523_allpad.root",
+    const char* rootfile  = "result/260523_allpad/padgain-fillpad-260523_allpad.root",
     const char* histname  = "TPC_gain_all",
     const char* param_out = "param_history/TPCParam_e72_20260616")
 {
@@ -40,7 +40,7 @@ void update_gainparam(
 
           if(mpv > 0.){
             p0 = 0.;
-            p1 = 200.0 / mpv;
+            p1 /= mpv;
           }
         }
 
