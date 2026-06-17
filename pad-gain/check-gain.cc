@@ -67,9 +67,17 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260616")
     }
     
   }
- 
+
+  TCanvas *c1 = new TCanvas("c1","c1");
+  gStyle->SetPadRightMargin(0.15);
+  hGain->SetTitle(";Z [mm];X [mm]");
+  hGain->Draw("colz");
+  c1->SaveAs("result/260616/check-gain-260616.pdf");
   TFile *f = new TFile("result/260616/check-gain-260616.root","RECREATE");
   hGain->Write();
   f->Close();
+
+  
+  
   
 }
