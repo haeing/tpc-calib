@@ -1,6 +1,6 @@
 #!/bin/bash
 
-runs=(2606 2607)
+runs=(2489 2599 2601 2602 2603 2604 2606 2607)
 
 for run in "${runs[@]}"; do
     tmux new-window -t tpc_gain -n "run${run}"

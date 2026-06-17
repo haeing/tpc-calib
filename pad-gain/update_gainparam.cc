@@ -40,7 +40,7 @@ void update_gainparam(
 
           if(mpv > 0.){
             p0 = 0.;
-            p1 = 200. / mpv;
+            p1 *= 200. / mpv;
           }
         }
 

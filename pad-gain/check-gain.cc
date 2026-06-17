@@ -68,7 +68,7 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260616")
     
   }
  
-  TFile *f = new TFile("result/check-gain.root","RECREATE");
+  TFile *f = new TFile("result/260616/check-gain-260616.root","RECREATE");
   hGain->Write();
   f->Close();
   
