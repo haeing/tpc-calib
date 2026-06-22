@@ -279,7 +279,7 @@ void FitOneSpecies(TH2D* h2,
   c2->Write("", TObject::kOverwrite);
 }
 
-void tpc_dedx_fit_multirun(const std::vector<int>& run_list = {2602, 2603, 2604},
+void tpc_dedx_fit_multirun(const std::vector<int>& run_list = {2599, 2601, 2602, 2603, 2604, 2606, 2607},
                            const char* input_dir = "/home/had/haein/data/JPARC2025Nov_root/gain_calib_260616",
                            const char* file_format = "%s/run%05d_DstTPCHelixTracking.root",
                            const char* histname = "PID_dEdx_vs_SignedMom",
