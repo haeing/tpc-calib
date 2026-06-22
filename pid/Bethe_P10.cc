@@ -73,14 +73,22 @@ void Bethe_P10(){
   }
 
   auto mg = new TMultiGraph();
+  auto c = TColor::GetColorTransparent(kRed, 0); 
   gr_p->SetLineColor(kBlue);
   gr_p->SetLineWidth(4);
+  gr_p->SetMarkerColor(c);
+  
   gr_k->SetLineColor(kBlack);
   gr_k->SetLineWidth(4);
+  gr_k->SetMarkerColor(c);
+  
   gr_pi->SetLineColor(kRed);
   gr_pi->SetLineWidth(4);
+  gr_pi->SetMarkerColor(c);
+  
   gr_e->SetLineColor(kMagenta);
   gr_e->SetLineWidth(4);
+  gr_e->SetMarkerColor(c);
   
   
   mg->Add(gr_p);
@@ -91,16 +99,16 @@ void Bethe_P10(){
 
   
   TLegend *le = new TLegend(0.8,0.5,0.48,0.6);
-  le->AddEntry(gr_e,"e^{-}");
-  le->AddEntry(gr_p,"p");
-  le->AddEntry(gr_k,"K^{#pm}");
-  le->AddEntry(gr_pi,"#pi^{#pm}");
+  le->AddEntry(gr_e,"#it{e}");
+  le->AddEntry(gr_p,"#it{p}");
+  le->AddEntry(gr_k,"#it{K}");
+  le->AddEntry(gr_pi,"#pi");
   
   
   can->cd();
   //gPad->SetLogx();
   gPad->SetLogy();
-  mg->SetTitle("Bethe-bloch formula;p [MeV/c];Energy loss inside the P10 gas [keV/cm]");
+  mg->SetTitle("Bethe-bloch formula;#it{p} [MeV/#it{c}];Energy loss inside the P10 gas [keV/cm]");
   mg->GetXaxis()->SetRangeUser(60,1000);
   mg->Draw("a");
   le->Draw("same");
