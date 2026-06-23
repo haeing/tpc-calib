@@ -1,12 +1,3 @@
-// FindCoboClockParam.C
-//
-// Usage:
-//   root -l 'FindCoboClockParam.C("input.root", "h_res_cobo%d")'
-//
-// Assumption:
-//   TH2D x-axis : CoBo clock time [ns]
-//   TH2D y-axis : y residual [mm]
-
 #include <iostream>
 #include <fstream>
 #include <iomanip>
