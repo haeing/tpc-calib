@@ -241,7 +241,7 @@ void conversion_factor()
   gStyle->SetOptFit(1111);
 
   //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
-  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking_all.root", "READ");
+  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking.root", "READ");
   if (!fin || fin->IsZombie()) {
     std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
     return;
