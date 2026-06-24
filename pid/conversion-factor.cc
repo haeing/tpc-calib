@@ -1,15 +1,17 @@
+namespace  {
+
 const double me = 0.5109989461; // MeV/c2
 const double mp = 938.2720813;  // MeV/c2
 const double mpi = 139.57061;   // MeV/c2
 
 enum PIDParticle {
-  kElectron = 0,
-  kPion     = 1,
-  kKaon     = 2,
-  kProton   = 3
+  kmyElectron = 0,
+  kmyPion     = 1,
+  kmyKaon     = 2,
+  kmyProton   = 3
 };
+  
 
-namespace {
   double DensityEffectCorrection(double betagamma, double* par)
   {
     const double c = 2. * TMath::Log(10.);
@@ -119,9 +121,9 @@ double BetheByMass(double poq, double mass_MeV, double conv)
 
 double PIDMean(double poq, PIDParticle pid, double conv)
 {
-  if (pid == kElectron) return BetheByMass(poq, me, conv);
-  if (pid == kPion)     return BetheByMass(poq, mpi, conv);
-  if (pid == kProton)   return BetheByMass(poq, mp, conv);
+  if (pid == kmyElectron) return BetheByMass(poq, me, conv);
+  if (pid == kmyPion)     return BetheByMass(poq, mpi, conv);
+  if (pid == kmyProton)   return BetheByMass(poq, mp, conv);
 
   // kaon mass
   const double mk = 493.677; // MeV/c2
@@ -132,11 +134,11 @@ double PIDSigma(double poq, PIDParticle pid)
 {
   const double sigma_dedx_pi[5] = {3.94842, 0.0138502, -0.110281, 12.6065, -10.9347};
   const double sigma_dedx_k[5]  = {6.24543, -3.21037, 1.52683, 127.099, -9.1004};
-  const double sigma_dedx_p[5]  = {12.9717, -8.43799, 3.10608, 40.0, -6.56123};
+  const double sigma_dedx_p[5]  = {12.9717, -8.43799, 3.10608, 166.0, -6.56123};
 
-  if (pid == kPion)   return CalcTPCdEdxSigma(sigma_dedx_pi, poq);
-  if (pid == kKaon)   return CalcTPCdEdxSigma(sigma_dedx_k, poq);
-  if (pid == kProton) return CalcTPCdEdxSigma(sigma_dedx_p, poq);
+  if (pid == kmyPion)   return CalcTPCdEdxSigma(sigma_dedx_pi, poq);
+  if (pid == kmyKaon)   return CalcTPCdEdxSigma(sigma_dedx_k, poq);
+  if (pid == kmyProton) return CalcTPCdEdxSigma(sigma_dedx_p, poq);
 
   // electron
   return poq > 0 ? 7.8511 : 8.45029;
@@ -148,19 +150,19 @@ double PIDSigma(double poq, PIDParticle pid)
 {
   const double abspoq = TMath::Abs(poq);
 
-  if (pid == kPion) {
+  if (pid == kmyPion) {
     return 4.0 + 1.0 * abspoq;
   }
 
-  if (pid == kKaon) {
+  if (pid == kmyKaon) {
     return 6.0 + 2.0 * abspoq;
   }
 
-  if (pid == kProton) {
+  if (pid == kmyProton) {
     return 8.0 + 4.0 * abspoq;
   }
 
-  if (pid == kElectron) {
+  if (pid == kmyElectron) {
     return 8.0;
   }
 
@@ -175,11 +177,11 @@ double PIDBoundary(double poq, PIDParticle pid, double conv, double nsigma)
 
 double PiProtonSeparationCut(double poq, double conv)
 {
-  const double dedx_pi = PIDMean(poq, kPion, conv);
-  const double dedx_p  = PIDMean(poq, kProton, conv);
+  const double dedx_pi = PIDMean(poq, kmyPion, conv);
+  const double dedx_p  = PIDMean(poq, kmyProton, conv);
 
-  const double sigma_pi = PIDSigma(poq, kPion);
-  const double sigma_p  = PIDSigma(poq, kProton);
+  const double sigma_pi = PIDSigma(poq, kmyPion);
+  const double sigma_p  = PIDSigma(poq, kmyProton);
 
   const double avg_sigma = 0.5 * (sigma_pi + sigma_p);
   const double separation_power = TMath::Abs(dedx_pi - dedx_p) / avg_sigma;
@@ -238,13 +240,15 @@ void conversion_factor()
   gStyle->SetOptStat(0);
   gStyle->SetOptFit(1111);
 
-  TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
+  //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
+  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking_all.root", "READ");
   if (!fin || fin->IsZombie()) {
     std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
     return;
   }
 
-  TH2D* h2_in = (TH2D*)fin->Get("h2_dedx_merged");
+  //TH2D* h2_in = (TH2D*)fin->Get("h2_dedx_merged");
+  TH2D* h2_in = (TH2D*)fin->Get("PID_dEdx_vs_SignedMom");
   if (!h2_in) {
     std::cerr << "Cannot find h2_dedx_merged" << std::endl;
     fin->Close();
@@ -260,7 +264,6 @@ void conversion_factor()
   const double ymin = 0.0;
   const double ymax = 600.0;
 
-  // proton band가 비교적 분리되어 보이는 구간만 사용
   //const double pstart = 0.15;
   const double pstart = 0;
   //const double pend   = 0.75;
@@ -374,21 +377,22 @@ void conversion_factor()
 
 
   const double new_conv = f_p->GetParameter(0);
+  //const double new_conv = 7000;
 
   // PID mean curves
-  TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kPion, new_conv, 0.0, xmin, xmax);
-  TGraph* g_k_mean  = MakePIDCurve("g_k_mean",  kKaon, new_conv, 0.0, xmin, xmax);
-  TGraph* g_p_mean  = MakePIDCurve("g_p_mean",  kProton, new_conv, 0.0, xmin, xmax);
+  TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
+  TGraph* g_k_mean  = MakePIDCurve("g_k_mean",  kmyKaon, new_conv, 0.0, xmin, xmax);
+  TGraph* g_p_mean  = MakePIDCurve("g_p_mean",  kmyProton, new_conv, 0.0, xmin, xmax);
 
   // PID boundaries
-  TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kPion,   new_conv, -3.0, xmin, xmax);
-  TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kPion,   new_conv,  3.0, xmin, xmax);
+  TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kmyPion,   new_conv, -3.0, xmin, xmax);
+  TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kmyPion,   new_conv,  3.0, xmin, xmax);
 
-  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kKaon,   new_conv, -3.0, xmin, xmax);
-  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kKaon,   new_conv,  3.0, xmin, xmax);
+  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -3.0, xmin, xmax);
+  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  3.0, xmin, xmax);
 
-  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kProton, new_conv, -4.0, xmin, xmax);
-  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kProton, new_conv,  6.0, xmin, xmax);
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -4.0, xmin, xmax);
+  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
 
   // pi/proton separation cut
   TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
@@ -433,7 +437,7 @@ void conversion_factor()
   g_p_low->SetLineStyle(2);
   g_p_high->SetLineStyle(2);
   g_picut->SetLineStyle(9);
-  /*
+
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
@@ -465,7 +469,7 @@ void conversion_factor()
   leg->AddEntry(g_picut,   "#pi-p separation cut", "l");
 
   leg->Draw();
-  */
+
   TFile* fout = TFile::Open("result/conversion-factor.root", "RECREATE");
   h2->Write("h2_dedx_merged");
   g->Write();
