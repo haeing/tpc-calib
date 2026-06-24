@@ -1,27 +1,15 @@
-// conversion-factor.cc
-//
-// Usage:
-// root -l
-// .L conversion-factor.cc
-// conversion_factor();
+const double me = 0.5109989461; // MeV/c2
+const double mp = 938.2720813;  // MeV/c2
+const double mpi = 139.57061;   // MeV/c2
 
-#include <iostream>
-
-#include "TFile.h"
-#include "TH2D.h"
-#include "TH1D.h"
-#include "TGraphErrors.h"
-#include "TF1.h"
-#include "TCanvas.h"
-#include "TMath.h"
-#include "TStyle.h"
-#include "TLegend.h"
+enum PIDParticle {
+  kElectron = 0,
+  kPion     = 1,
+  kKaon     = 2,
+  kProton   = 3
+};
 
 namespace {
-  const double me = 0.5109989461; // MeV/c2
-  const double mp = 938.2720813;  // MeV/c2
-  const double mpi = 139.57061;   // MeV/c2
-
   double DensityEffectCorrection(double betagamma, double* par)
   {
     const double c = 2. * TMath::Log(10.);
@@ -108,6 +96,140 @@ namespace {
 
     return par[0] * BetheP10Raw(me, beta);
   }
+
+  double CalcTPCdEdxSigma(const double sigma_par[5], double poq)
+{
+  const double abspoq = TMath::Abs(poq);
+  return sigma_par[0]
+       + sigma_par[1] * abspoq
+       + sigma_par[2] * poq * poq
+       + sigma_par[3] * TMath::Exp(sigma_par[4] * abspoq);
+}
+
+double BetheByMass(double poq, double mass_MeV, double conv)
+{
+  const double p_MeV = 1000. * TMath::Abs(poq);
+  if (p_MeV <= 0.) return 0.;
+
+  const double energy = TMath::Hypot(mass_MeV, p_MeV);
+  const double beta = p_MeV / energy;
+
+  return conv * BetheP10Raw(mass_MeV, beta);
+}
+
+double PIDMean(double poq, PIDParticle pid, double conv)
+{
+  if (pid == kElectron) return BetheByMass(poq, me, conv);
+  if (pid == kPion)     return BetheByMass(poq, mpi, conv);
+  if (pid == kProton)   return BetheByMass(poq, mp, conv);
+
+  // kaon mass
+  const double mk = 493.677; // MeV/c2
+  return BetheByMass(poq, mk, conv);
+}
+  
+double PIDSigma(double poq, PIDParticle pid)
+{
+  const double sigma_dedx_pi[5] = {3.94842, 0.0138502, -0.110281, 12.6065, -10.9347};
+  const double sigma_dedx_k[5]  = {6.24543, -3.21037, 1.52683, 127.099, -9.1004};
+  const double sigma_dedx_p[5]  = {12.9717, -8.43799, 3.10608, 40.0, -6.56123};
+
+  if (pid == kPion)   return CalcTPCdEdxSigma(sigma_dedx_pi, poq);
+  if (pid == kKaon)   return CalcTPCdEdxSigma(sigma_dedx_k, poq);
+  if (pid == kProton) return CalcTPCdEdxSigma(sigma_dedx_p, poq);
+
+  // electron
+  return poq > 0 ? 7.8511 : 8.45029;
+}
+
+  /*
+
+double PIDSigma(double poq, PIDParticle pid)
+{
+  const double abspoq = TMath::Abs(poq);
+
+  if (pid == kPion) {
+    return 4.0 + 1.0 * abspoq;
+  }
+
+  if (pid == kKaon) {
+    return 6.0 + 2.0 * abspoq;
+  }
+
+  if (pid == kProton) {
+    return 8.0 + 4.0 * abspoq;
+  }
+
+  if (pid == kElectron) {
+    return 8.0;
+  }
+
+  return 10.0;
+}
+  */
+
+double PIDBoundary(double poq, PIDParticle pid, double conv, double nsigma)
+{
+  return PIDMean(poq, pid, conv) + nsigma * PIDSigma(poq, pid);
+}
+
+double PiProtonSeparationCut(double poq, double conv)
+{
+  const double dedx_pi = PIDMean(poq, kPion, conv);
+  const double dedx_p  = PIDMean(poq, kProton, conv);
+
+  const double sigma_pi = PIDSigma(poq, kPion);
+  const double sigma_p  = PIDSigma(poq, kProton);
+
+  const double avg_sigma = 0.5 * (sigma_pi + sigma_p);
+  const double separation_power = TMath::Abs(dedx_pi - dedx_p) / avg_sigma;
+
+  // Kinematics.cc와 같은 정의
+  if (dedx_pi < dedx_p)
+    return dedx_pi + 0.5 * separation_power * sigma_pi;
+  else
+    return dedx_p + 0.5 * separation_power * sigma_p;
+}
+
+TGraph* MakePIDCurve(
+    const char* name,
+    PIDParticle pid,
+    double conv,
+    double nsigma,
+    double xmin = -2.0,
+    double xmax =  2.0,
+    int n = 400)
+{
+  TGraph* g = new TGraph(n);
+  g->SetName(name);
+
+  for (int i = 0; i < n; ++i) {
+    const double poq = xmin + (xmax - xmin) * i / (n - 1);
+    const double y = PIDBoundary(poq, pid, conv, nsigma);
+    g->SetPoint(i, poq, y);
+  }
+
+  return g;
+}
+
+TGraph* MakePiProtonCutCurve(
+    const char* name,
+    double conv,
+    double xmin = -2.0,
+    double xmax = 2.0,
+    int n = 400)
+{
+  TGraph* g = new TGraph(n);
+  g->SetName(name);
+
+  for (int i = 0; i < n; ++i) {
+    const double poq = xmin + (xmax - xmin) * i / (n - 1);
+    const double y = PiProtonSeparationCut(poq, conv);
+    g->SetPoint(i, poq, y);
+  }
+
+  return g;
+}
   
 }
 
@@ -247,6 +369,29 @@ void conversion_factor()
   TF1* f_e = new TF1("f_pion_bethe", ElectronBethe, pstart, pend, 1);
   f_e->SetParName(0, "conversion_factor");
   f_e->SetParameter(0, f_p->GetParameter(0));
+
+
+
+
+  const double new_conv = f_p->GetParameter(0);
+
+  // PID mean curves
+  TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kPion, new_conv, 0.0, xmin, xmax);
+  TGraph* g_k_mean  = MakePIDCurve("g_k_mean",  kKaon, new_conv, 0.0, xmin, xmax);
+  TGraph* g_p_mean  = MakePIDCurve("g_p_mean",  kProton, new_conv, 0.0, xmin, xmax);
+
+  // PID boundaries
+  TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kPion,   new_conv, -3.0, xmin, xmax);
+  TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kPion,   new_conv,  3.0, xmin, xmax);
+
+  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kKaon,   new_conv, -3.0, xmin, xmax);
+  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kKaon,   new_conv,  3.0, xmin, xmax);
+
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kProton, new_conv, -4.0, xmin, xmax);
+  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kProton, new_conv,  6.0, xmin, xmax);
+
+  // pi/proton separation cut
+  TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
   
 
   TCanvas* c = new TCanvas("c_conversion_factor", "conversion factor", 900, 700);
@@ -266,16 +411,61 @@ void conversion_factor()
   g->SetLineColor(kBlack);
   g->Draw("P same");
 
-  f_pi->Draw("same");
-  f_e->Draw("same");
+  //f_pi->Draw("same");
+  //f_e->Draw("same");
 
-  TLegend* leg = new TLegend(0.55, 0.70, 0.88, 0.88);
+  g_pi_mean->SetLineColor(kBlue);
+  g_k_mean->SetLineColor(kGreen+2);
+  g_p_mean->SetLineColor(kRed);
+
+  g_pi_low->SetLineColor(kBlue);
+  g_pi_high->SetLineColor(kBlue);
+  g_k_low->SetLineColor(kGreen+2);
+  g_k_high->SetLineColor(kGreen+2);
+  g_p_low->SetLineColor(kRed);
+  g_p_high->SetLineColor(kRed);
+  g_picut->SetLineColor(kMagenta+2);
+  
+  g_pi_low->SetLineStyle(2);
+  g_pi_high->SetLineStyle(2);
+  g_k_low->SetLineStyle(2);
+  g_k_high->SetLineStyle(2);
+  g_p_low->SetLineStyle(2);
+  g_p_high->SetLineStyle(2);
+  g_picut->SetLineStyle(9);
+  /*
+  g_pi_mean->Draw("L same");
+  g_k_mean->Draw("L same");
+  g_p_mean->Draw("L same");
+
+  g_pi_low->Draw("L same");
+  g_pi_high->Draw("L same");
+  g_k_low->Draw("L same");
+  g_k_high->Draw("L same");
+  g_p_low->Draw("L same");
+  g_p_high->Draw("L same");
+
+  g_picut->Draw("L same");
+  
+
+  TLegend* leg = new TLegend(0.60, 0.60, 0.88, 0.88);
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
-  leg->AddEntry(g, "Proton peak points", "p");
-  leg->AddEntry(f_p, "Proton Bethe-Bloch fit", "l");
-  leg->Draw();
+  leg->SetTextSize(0.03);
 
+  leg->AddEntry(g_pi_mean, "#pi mean", "l");
+  leg->AddEntry(g_pi_low,  "#pi #pm 3#sigma", "l");
+
+  leg->AddEntry(g_k_mean,  "K mean", "l");
+  leg->AddEntry(g_k_low,   "K #pm 3#sigma", "l");
+
+  leg->AddEntry(g_p_mean,  "p mean", "l");
+  leg->AddEntry(g_p_low,   "p -4#sigma / +6#sigma", "l");
+
+  leg->AddEntry(g_picut,   "#pi-p separation cut", "l");
+
+  leg->Draw();
+  */
   TFile* fout = TFile::Open("result/conversion-factor.root", "RECREATE");
   h2->Write("h2_dedx_merged");
   g->Write();
