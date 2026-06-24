@@ -441,14 +441,14 @@ void conversion_factor()
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
-
+  /*
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
   g_k_low->Draw("L same");
   g_k_high->Draw("L same");
   g_p_low->Draw("L same");
   g_p_high->Draw("L same");
-
+  */
   g_picut->Draw("L same");
   
 
@@ -457,16 +457,16 @@ void conversion_factor()
   leg->SetFillStyle(0);
   leg->SetTextSize(0.03);
 
-  leg->AddEntry(g_pi_mean, "#pi mean", "l");
-  leg->AddEntry(g_pi_low,  "#pi #pm 3#sigma", "l");
+  leg->AddEntry(g_pi_mean, "#pi", "l");
+  //leg->AddEntry(g_pi_low,  "#pi #pm 3#sigma", "l");
 
-  leg->AddEntry(g_k_mean,  "K mean", "l");
-  leg->AddEntry(g_k_low,   "K #pm 3#sigma", "l");
+  leg->AddEntry(g_k_mean,  "#it{K}", "l");
+  //leg->AddEntry(g_k_low,   "K #pm 3#sigma", "l");
 
-  leg->AddEntry(g_p_mean,  "p mean", "l");
-  leg->AddEntry(g_p_low,   "p -4#sigma / +6#sigma", "l");
+  leg->AddEntry(g_p_mean,  "#it{p}", "l");
+  //leg->AddEntry(g_p_low,   "p -4#sigma / +6#sigma", "l");
 
-  leg->AddEntry(g_picut,   "#pi-p separation cut", "l");
+  leg->AddEntry(g_picut,   "#pi-#it{p} separation cut", "l");
 
   leg->Draw();
 
