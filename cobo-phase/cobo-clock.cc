@@ -39,7 +39,6 @@ TH2D* CorrectHistY(TH2D *h, TF1 *fshift, const char *name)
 
 void UpdateCoboParameter(const char* infile,
                          const char* outfile,
-                         const double p0fit[],
                          const double p1fit[],
                          const int NCobo)
 {
@@ -74,14 +73,14 @@ void UpdateCoboParameter(const char* infile,
         fout << std::setw(8)  << cobo
              << std::setw(8)  << dummy
              << std::setw(8)  << aty
-             << std::setw(16) << std::fixed << std::setprecision(8) << p0fit[idx]
+             << std::setw(16) << std::fixed << std::setprecision(8) << -80
              << std::setw(16) << std::fixed << std::setprecision(8) << p1fit[idx]
              << std::setw(16) << std::fixed << std::setprecision(8) << oldp2
              << "\n";
 
         std::cout << "update cobo idx " << idx
                   << " : " << oldp0 << " " << oldp1
-                  << " -> " << p0fit[idx] << " " << p1fit[idx]
+                  << " -> " << "-80" << " " << p1fit[idx]
                   << std::endl;
 
         idx++;
@@ -172,11 +171,11 @@ void cobo_clock(){
     TF1 *fleft = new TF1(Form("fleft%d",icobo),"gaus",max_left-5,max_left+5);
     TF1 *fright = new TF1(Form("fright%d",icobo),"gaus",max_right-5,max_right+5);
 
-    hleft->Fit(fleft,"R");
-    hright->Fit(fright,"R");
+    hleft->Fit(fleft,"RQ0");
+    hright->Fit(fright,"RQ0");
     double yleft = fleft->GetParameter(1);
     double yright = fright->GetParameter(1);
-    double p0 = 80. * 0.055;
+    double p0 = yright - yleft;
 
     hleft->Write();
     hright->Write();
@@ -186,18 +185,18 @@ void cobo_clock(){
     double p3 = yleft;
     fshift[icobo]->SetParameters(p0,p1[icobo],p2,p3);
     
-
+    fshift[icobo]->SetParLimits(0,p0-0.1,p0+0.1);
     fshift[icobo]->SetParLimits(1,p1[icobo]-0.5,p1[icobo]+0.5);
     //fshift[icobo]->SetParLimits(2,0,p2+0.02);
-    fshift[icobo]->FixParameter(0,p0);
+    //fshift[icobo]->FixParameter(0,p0);
     fshift[icobo]->FixParameter(2,p2);
     fshift[icobo]->SetParLimits(3,p3-0.2,p3+0.2);
     
-    
-    h2[icobo]->Fit(fshift[icobo],"R");
     c1->cd(icobo+1);
+    h2[icobo]->Fit(fshift[icobo],"R");
     h2[icobo]->SetTitle(Form("CoBo%d",icobo));
     h2[icobo]->Draw("colz");
+    
     h2[icobo]->Write();
     fshift[icobo]->Write();
     p0_fit[icobo] = fshift[icobo]->GetParameter(0) * -1 / 0.055;
@@ -248,7 +247,6 @@ void cobo_clock(){
   if(param_update){
     UpdateCoboParameter("param_history/TPCParam_e72_20260616",
 			Form("param_history/TPCParam_e72_run0%d",runnumber),
-			p0_fit,
 			p1_fit, NCobo);
   }
 }
