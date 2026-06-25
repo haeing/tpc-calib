@@ -241,7 +241,7 @@ void conversion_factor()
   gStyle->SetOptFit(1111);
 
   //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
-  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking.root", "READ");
+  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking_noiseoff.root", "READ");
   if (!fin || fin->IsZombie()) {
     std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
     return;
@@ -383,6 +383,7 @@ void conversion_factor()
   TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
   TGraph* g_k_mean  = MakePIDCurve("g_k_mean",  kmyKaon, new_conv, 0.0, xmin, xmax);
   TGraph* g_p_mean  = MakePIDCurve("g_p_mean",  kmyProton, new_conv, 0.0, xmin, xmax);
+  TGraph* g_e_mean  = MakePIDCurve("g_e_mean",  kmyElectron, new_conv, 0.0, xmin, xmax);
 
   // PID boundaries
   TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kmyPion,   new_conv, -3.0, xmin, xmax);
@@ -421,6 +422,7 @@ void conversion_factor()
   g_pi_mean->SetLineColor(kBlue);
   g_k_mean->SetLineColor(kGreen+2);
   g_p_mean->SetLineColor(kRed);
+  g_e_mean->SetLineColor(kBlack);
 
   g_pi_low->SetLineColor(kBlue);
   g_pi_high->SetLineColor(kBlue);
@@ -441,6 +443,7 @@ void conversion_factor()
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
+  g_e_mean->Draw("L same");
   /*
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
@@ -456,7 +459,7 @@ void conversion_factor()
   leg->SetBorderSize(0);
   leg->SetFillStyle(0);
   leg->SetTextSize(0.03);
-
+  leg->AddEntry(g_e_mean, "#it{e}", "l");
   leg->AddEntry(g_pi_mean, "#pi", "l");
   //leg->AddEntry(g_pi_low,  "#pi #pm 3#sigma", "l");
 
