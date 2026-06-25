@@ -22,7 +22,7 @@ void htofcalib_mincde(int runnumber){
   tree->SetBranchAddress("raw_de",&raw_de);
   
   tree->SetBranchAddress("ntTpc",&ntTpc);
-  tree->SetBranchAddress("nhtrack",&nhtrack);
+  tree->SetBranchAddress("nhrawtrack",&nhtrack);
   tree->SetBranchAddress("track_hit_pad",&track_hit_pad);
   tree->SetBranchAddress("track_hit_de",&track_hit_de);
 
