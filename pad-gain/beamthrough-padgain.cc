@@ -1,4 +1,4 @@
-#include "../TPCPadHelper_260416.hh"
+#include "../TPCPadHelper.hh"
 
 const int runnumber = 2489;
 
@@ -26,7 +26,7 @@ void beamthrough_padgain(){
   vector<vector<double>>* track_cluster_mrow = nullptr;
   vector<vector<double>>* track_cluster_row_center = nullptr;
   
-
+  
   tree->SetBranchAddress("nclTpc",&nclTpc);
   tree->SetBranchAddress("cluster_de",&cluster_de);
   tree->SetBranchAddress("cluster_layer",&cluster_layer);
@@ -53,6 +53,11 @@ void beamthrough_padgain(){
   graph_gain->SetName("graph_gain");
   TH1D *hist_de[NumOfPadTPC];
   TH1D *hist_size = new TH1D("hist_size","hist_size; Cluster Size;Counts",5,-0.5,4.5);
+  TH1D *hist_inner_alpha = new TH1D("hist_inner_alpha","hist_inner_alpha;#alpha [rad];Counts",100,-1,1);
+  TH1D *hist_outer_alpha = new TH1D("hist_outer_alpha","hist_outer_alpha;#alpha [rad];Counts",100,-1,1);
+  TH1D *hist_y_total = new TH1D("hist_y_total","hist_y_total;Y [mm];Counts",600,-300,300);
+  TH1D *hist_y = new TH1D("hist_y","hist_y;Y [mm];Counts",600,-300,300);
+  
   for(int i=0;i<NumOfPadTPC;i++){
     hist_de[i] = new TH1D(Form("hist_de%d",i),Form("hist_de%d",i),100,0,1000);
   }
@@ -97,8 +102,8 @@ void beamthrough_padgain(){
   bool de_cut = false;
   bool cluster_cut = false;
   
-  for(int n = 0;n<tree->GetEntries();n++){
-  //for(int n = 0;n<10000;n++){
+  //for(int n = 0;n<tree->GetEntries();n++){
+  for(int n = 0;n<100000;n++){
     tree->GetEntry(n);
     
     
@@ -121,6 +126,11 @@ void beamthrough_padgain(){
 	int padid = tpc::GetPadId((*hitlayer)[i][j],(*track_cluster_row_center)[i][j]);
 	
 	if((*track_cluster_y_center)[i][j]>-50 && (*track_cluster_y_center)[i][j]<50)y_cut = true;
+	hist_y_total->Fill((*track_cluster_y_center)[i][j]);
+	if(!tpc::Noise(padid)){
+	  hist_y->Fill((*track_cluster_y_center)[i][j]);
+	}
+	
 	if((*hitlayer)[i][j]<10){ //inner layer
 	  if(TMath::Abs((*theta_diff)[i][j])<0.1)alpha_cut = true;
 	  else if(TMath::Abs((*theta_diff)[i][j])>TMath::Pi()-0.1 && TMath::Abs((*theta_diff)[i][j])<TMath::Pi()+0.1)alpha_cut = true;
@@ -131,6 +141,10 @@ void beamthrough_padgain(){
 	if((*track_cluster_de)[i][j]>80)de_cut = true;
 	if((*track_cluster_size)[i][j] == 1)cluster_cut = true;
 	hist_size->Fill((*track_cluster_size)[i][j]);
+	if((*hitlayer)[i][j]<=9 && (*hitlayer)[i][j]>=0)
+	  hist_inner_alpha->Fill((*theta_diff)[i][j]);
+	else if((*hitlayer)[i][j]<=29 && (*hitlayer)[i][j]>=10)
+	  hist_outer_alpha->Fill((*theta_diff)[i][j]);
 	//if(y_cut && alpha_cut && de_cut){
 	if(y_cut && alpha_cut && cluster_cut){
 	  double cnt = TPC_tr_cluster->GetBinContent(padid+1);
@@ -183,6 +197,22 @@ void beamthrough_padgain(){
   hist_size->Write();
   c1->Print("beamthrough-padgain.pdf");
   c1->Clear();
+  hist_inner_alpha->Draw();
+  hist_inner_alpha->Write();
+  c1->Print("beamthrough-padgain.pdf");
+  c1->Clear();
+  hist_outer_alpha->Draw();
+  hist_outer_alpha->Write();
+  c1->Print("beamthrough-padgain.pdf");
+  c1->Clear();
+  hist_y_total->Draw();
+  hist_y_total->Write();
+  hist_y->SetLineColor(kRed);
+  hist_y->Draw("same");
+  hist_y->Write();
+  c1->Print("beamthrough-padgain.pdf");
+  c1->Clear();
+  
   graph_gain->SetMarkerStyle(4);
   graph_gain->Draw("AP");
   graph_gain->Write();

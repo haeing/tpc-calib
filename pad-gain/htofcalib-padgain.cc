@@ -4,9 +4,11 @@
 void htofcalib_padgain(int runnumber){
   gROOT->SetBatch(kTRUE);
   string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_260616";
+  //string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/physics-735";
   TFile *file = new TFile(Form("%s/run0%d_DstTPCHelixTracking.root",dir.c_str(),runnumber));
   TTree *tree = (TTree*)file->Get("tpc");
   string outpdf = Form("result/260616/htofcalib-padgain-run0%d-260616.pdf", runnumber);
+  //string outpdf = Form("result/physics-735/htofcalib-padgain-run0%d.pdf", runnumber);
 
 
   vector<double>* mom0 = nullptr;
