@@ -1,6 +1,6 @@
 const int NCobo = 8;
-const int runnumber = 2585;
-const bool param_update = false;
+const int runnumber = 2448;
+const bool param_update = true;
 Double_t ClockShiftFunc(Double_t *x, Double_t *par)
 {
   return par[0] * TMath::Freq((x[0] - par[1]) / par[2])+par[3];
@@ -39,6 +39,7 @@ TH2D* CorrectHistY(TH2D *h, TF1 *fshift, const char *name)
 
 void UpdateCoboParameter(const char* infile,
                          const char* outfile,
+			 const double p0fit[],
                          const double p1fit[],
                          const int NCobo)
 {
@@ -80,7 +81,7 @@ void UpdateCoboParameter(const char* infile,
 
         std::cout << "update cobo idx " << idx
                   << " : " << oldp0 << " " << oldp1
-                  << " -> " << "-80" << " " << p1fit[idx]
+                  << " -> " << p0fit[idx] << " " << p1fit[idx]
                   << std::endl;
 
         idx++;
@@ -247,6 +248,6 @@ void cobo_clock(){
   if(param_update){
     UpdateCoboParameter("param_history/TPCParam_e72_20260616",
 			Form("param_history/TPCParam_e72_run0%d",runnumber),
-			p1_fit, NCobo);
+			p0_fit, p1_fit, NCobo);
   }
 }
