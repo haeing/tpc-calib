@@ -27,7 +27,7 @@ void htofcalib_padgain(int runnumber){
   vector<vector<double>>* theta_diff = nullptr;
   vector<vector<double>>* track_cluster_de = nullptr;
   vector<vector<double>>* track_cluster_y_center = nullptr;
-  vector<vector<double>>* track_cluster_size = nullptr;
+  vector<vector<double>>* track_cluster_size= nullptr;
   vector<vector<double>>* track_cluster_mrow = nullptr;
   vector<vector<double>>* track_cluster_row_center = nullptr;
   

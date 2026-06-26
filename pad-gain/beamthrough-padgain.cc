@@ -4,7 +4,7 @@ const int runnumber = 2489;
 
 void beamthrough_padgain(){
   gROOT->SetBatch(kTRUE);
-  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_noiseoff_202401";
+  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_noiseoff_202401_minlayer5";
   TFile *file = new TFile(Form("%s/run0%d_DstTPCHelixTracking.root",dir.c_str(),runnumber));
   TTree *tree = (TTree*)file->Get("tpc");
 
@@ -52,7 +52,7 @@ void beamthrough_padgain(){
   TGraph *graph_gain = new TGraph();
   graph_gain->SetName("graph_gain");
   TH1D *hist_de[NumOfPadTPC];
-  TH1D *hist_size = new TH1D("hist_size","hist_size",5,-0.5,4.5);
+  TH1D *hist_size = new TH1D("hist_size","hist_size; Cluster Size;Counts",5,-0.5,4.5);
   for(int i=0;i<NumOfPadTPC;i++){
     hist_de[i] = new TH1D(Form("hist_de%d",i),Form("hist_de%d",i),100,0,1000);
   }
@@ -130,13 +130,13 @@ void beamthrough_padgain(){
 	}
 	if((*track_cluster_de)[i][j]>80)de_cut = true;
 	if((*track_cluster_size)[i][j] == 1)cluster_cut = true;
-
+	hist_size->Fill((*track_cluster_size)[i][j]);
 	//if(y_cut && alpha_cut && de_cut){
 	if(y_cut && alpha_cut && cluster_cut){
 	  double cnt = TPC_tr_cluster->GetBinContent(padid+1);
 	  TPC_tr_cluster->SetBinContent(padid+1,cnt+1);
 	  hist_de[padid]->Fill((*track_cluster_de)[i][j]);
-	  hist_size->Fill((*track_cluster_size)[i][j]);
+	  
 	}
       }
     }
@@ -180,6 +180,7 @@ void beamthrough_padgain(){
   c1->Print("beamthrough-padgain.pdf");
   c1->Clear();
   hist_size->Draw();
+  hist_size->Write();
   c1->Print("beamthrough-padgain.pdf");
   c1->Clear();
   graph_gain->SetMarkerStyle(4);
