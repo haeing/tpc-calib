@@ -28,7 +28,7 @@
   gStyle->SetPadTopMargin(0.05);
   gStyle->SetPadBottomMargin(0.12);
   gStyle->SetPadLeftMargin(0.13);
-  gStyle->SetPadRightMargin(0.15);
+  gStyle->SetPadRightMargin(0.17);
 
   // Axis fonts and sizes
   gStyle->SetTitleSize(0.055, "XYZ");
