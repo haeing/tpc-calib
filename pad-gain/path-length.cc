@@ -71,17 +71,19 @@ void path_length()
   // height: radial direction
 
   //inner layer
+  /*
   double width_top    = 2.52;   // mm
   double width_bottom = 1.34;   // mm
   double height       = 9.0;  // mm
+  */
 
   
   //outer layer
-  /*
+  
   double width_top    = 3.0;   // mm
   double width_bottom = 2.7;   // mm
   double height       = 12.5;  // mm
-  */
+
 
   // trapezoid centered at (0,0)
 
@@ -119,10 +121,11 @@ void path_length()
 
   TCanvas* c1 = new TCanvas("c1","path length",800,600);
 
-  gr->SetTitle("Path length in one pad;#alpha;Path length in pad [mm]");
+  gr->SetTitle("Path length in one pad;#alpha [rad];Path length in pad [mm]");
 
   gr->SetLineWidth(2);
   gr->SetLineColor(kBlue+1);
+  gr->GetXaxis()->SetLimits(-1.5,1.5);
 
   gr->Draw("AL");
 
