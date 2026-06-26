@@ -111,6 +111,7 @@ void htofcalib_padgain(int runnumber){
   bool alpha_cut = false;
   bool de_cut = false;
   bool cluster_cut = false;
+  bool pid_cut = false;
   
   for(int n = 0;n<tree->GetEntries();n++){
   //for(int n = 0;n<50000;n++){
@@ -131,6 +132,7 @@ void htofcalib_padgain(int runnumber){
     for(int i=0;i<ntTpc;i++){
       TPC_pid->Fill((*mom0)[i],(*dEdx)[i]);
       hist_dedx->Fill((*dEdx)[i]);
+      if((*mom0)[i] > 0.1 && (*dEdx)[i] < 30)pid_cut = true;
       for(int j=0;j<(*nhtrack)[i];j++){
 	//init.
 	y_cut = false;
@@ -151,7 +153,7 @@ void htofcalib_padgain(int runnumber){
 	if((*track_cluster_size)[i][j] == 1)cluster_cut = true;
 
 	//if(y_cut && alpha_cut && de_cut){
-	if(y_cut && alpha_cut && cluster_cut){
+	if(y_cut && alpha_cut && cluster_cut && pid_cut){
 	  double cnt = TPC_tr_cluster->GetBinContent(padid+1);
 	  TPC_tr_cluster->SetBinContent(padid+1,cnt+1);
 	  hist_de[padid]->Fill((*track_cluster_de)[i][j]);
