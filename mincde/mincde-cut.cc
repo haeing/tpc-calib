@@ -1,11 +1,11 @@
-const int mincde[] = {30,50,70,90,110};
+const int mincde[] = {20,30,40,50,60,70,80,90,100};
 const int nmincde = sizeof(mincde) / sizeof(mincde[0]);
 const int runnumber = 2599;
 
 void mincde_cut(){
   gROOT->SetBatch(kTRUE);
-  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/mincde";
-  string outpdf = Form("result/mincde-cut-run0%d.pdf", runnumber);
+  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/mincde_noiseoff";
+  string outpdf = Form("result/mincde-cut-run0%d_noiseoff.pdf", runnumber);
 
   TH1D *hist_chi[nmincde];
   TH1D *hist_resx[nmincde];
@@ -15,11 +15,11 @@ void mincde_cut(){
   TH1D *hist_rawde[nmincde];
   TH1D *hist_trackde[nmincde];
   for(int i=0;i<nmincde;i++){
-    hist_chi[i] = new TH1D(Form("hist_chi%d",mincde[i]),Form("hist_chi%d",mincde[i]),100,0,7);
-    hist_resx[i] = new TH1D(Form("hist_resx%d",mincde[i]),Form("hist_resx%d",mincde[i]),200,-5,5);
-    hist_resy[i] = new TH1D(Form("hist_resy%d",mincde[i]),Form("hist_resy%d",mincde[i]),200,-5,5);
-    hist_resz[i] = new TH1D(Form("hist_resz%d",mincde[i]),Form("hist_resz%d",mincde[i]),200,-5,5);
-    hist_nhit[i] = new TH1D(Form("hist_nhit%d",mincde[i]),Form("hist_nhit%d",mincde[i]),50,0,50);
+    hist_chi[i] = new TH1D(Form("hist_chi%d",mincde[i]),Form("hist_chi%d;#chi^{2};Counts",mincde[i]),100,0,7);
+    hist_resx[i] = new TH1D(Form("hist_resx%d",mincde[i]),Form("hist_resx%d;Residual X [mm];Counts",mincde[i]),200,-5,5);
+    hist_resy[i] = new TH1D(Form("hist_resy%d",mincde[i]),Form("hist_resy%d;Residual Y [mm];Counts",mincde[i]),200,-5,5);
+    hist_resz[i] = new TH1D(Form("hist_resz%d",mincde[i]),Form("hist_resz%d;Residual Z [mm];Counts",mincde[i]),200,-5,5);
+    hist_nhit[i] = new TH1D(Form("hist_nhit%d",mincde[i]),Form("hist_nhit%d;# of hits from one track;Counts",mincde[i]),50,0,50);
     hist_rawde[i] = new TH1D(Form("hist_rawde%d",mincde[i]),Form("hist_rawde%d",mincde[i]),50,0,50);
     hist_trackde[i] = new TH1D(Form("hist_trackde%d",mincde[i]),Form("hist_trackde%d",mincde[i]),50,0,50);
   }
@@ -37,8 +37,15 @@ void mincde_cut(){
   c1->Clear();
 
   c1->Divide(3,2);
-  TLegend *leg = new TLegend(0.65,0.7,0.88,0.88);
-   
+
+  TLegend *leg = new TLegend(0.38,0.25,0.68,0.75);
+
+  leg->SetTextSize(0.06);
+
+  leg->SetBorderSize(0);
+
+  leg->SetFillStyle(0);
+  
   for(int i=0;i<nmincde;i++){
     TFile *file = new TFile(Form("%s/run0%d_DstTPCCalibration_mincde_%d.root",dir.c_str(),runnumber,mincde[i]));
     TTree *tree = (TTree*)file->Get("tpc");
@@ -81,23 +88,29 @@ void mincde_cut(){
 	hist_nhit[i]->Fill((*nhrawtrack)[nt]);
       }
     }
+
     c1->cd(1);
     hist_chi[i]->SetLineColor(i+1);
+    hist_chi[i]->GetYaxis()->SetMaxDigits(3);
     hist_chi[i]->Draw("same");
     c1->cd(2);
     hist_resx[i]->SetLineColor(i+1);
+    hist_resx[i]->GetYaxis()->SetMaxDigits(3);
     hist_resx[i]->Draw("same");
     c1->cd(3);
     hist_resy[i]->SetLineColor(i+1);
+    hist_resy[i]->GetYaxis()->SetMaxDigits(3);
     hist_resy[i]->Draw("same");
     c1->cd(4);
     hist_resz[i]->SetLineColor(i+1);
+    hist_resz[i]->GetYaxis()->SetMaxDigits(3);
     hist_resz[i]->Draw("same");
     c1->cd(5);
     hist_nhit[i]->SetLineColor(i+1);
+    hist_nhit[i]->GetYaxis()->SetMaxDigits(3);
     hist_nhit[i]->Draw("same");
     
-    leg->AddEntry(hist_nhit[i],Form("mincde : %d",mincde[i]),"l");
+    leg->AddEntry(hist_nhit[i],Form("MinCDeTPC : %d",mincde[i]),"l");
   }
   c1->cd(6);
   leg->Draw();
