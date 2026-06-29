@@ -1,6 +1,6 @@
 #include "../TPCPadHelper_260416.hh"
 
-void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260616")
+void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260626")
 {
   TH2Poly *hGain = new TH2Poly("hGain","hGain",MinZ,MaxZ,MinX,MaxX);
 
@@ -72,8 +72,8 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260616")
   gStyle->SetPadRightMargin(0.15);
   hGain->SetTitle(";Z [mm];X [mm]");
   hGain->Draw("colz");
-  c1->SaveAs("result/260616/check-gain-260616.pdf");
-  TFile *f = new TFile("result/260616/check-gain-260616.root","RECREATE");
+  c1->SaveAs("result/260626/check-gain-260626.pdf");
+  TFile *f = new TFile("result/260626/check-gain-260626.root","RECREATE");
   hGain->Write();
   f->Close();
 

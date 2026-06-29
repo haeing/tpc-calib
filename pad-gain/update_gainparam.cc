@@ -1,10 +1,10 @@
 #include "../TPCPadHelper_260416.hh"
 
 void update_gainparam(
-    const char* param_in  = "param_history/TPCParam_e72_20260523",
-    const char* rootfile  = "result/260523_allpad/padgain-fillpad-260523_allpad.root",
+    const char* param_in  = "param_history/TPCParam_e72_20260616",
+    const char* rootfile  = "result/260626/padgain-fillpad-260626.root",
     const char* histname  = "TPC_gain_all",
-    const char* param_out = "param_history/TPCParam_e72_20260616")
+    const char* param_out = "param_history/TPCParam_e72_20260626")
 {
   TFile *f = new TFile(rootfile, "READ");
   TH2Poly *hGain = (TH2Poly*)f->Get(histname);

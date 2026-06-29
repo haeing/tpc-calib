@@ -3,11 +3,11 @@
 
 void htofcalib_padgain(int runnumber){
   gROOT->SetBatch(kTRUE);
-  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_260616";
+  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_260626";
   //string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/physics-735";
   TFile *file = new TFile(Form("%s/run0%d_DstTPCHelixTracking.root",dir.c_str(),runnumber));
   TTree *tree = (TTree*)file->Get("tpc");
-  string outpdf = Form("result/260616/htofcalib-padgain-run0%d-260616.pdf", runnumber);
+  string outpdf = Form("result/260629/htofcalib-padgain-run0%d-260629.pdf", runnumber);
   //string outpdf = Form("result/physics-735/htofcalib-padgain-run0%d.pdf", runnumber);
 
 
@@ -132,7 +132,7 @@ void htofcalib_padgain(int runnumber){
     for(int i=0;i<ntTpc;i++){
       TPC_pid->Fill((*mom0)[i],(*dEdx)[i]);
       hist_dedx->Fill((*dEdx)[i]);
-      if((*mom0)[i] > 0.1 && (*dEdx)[i] < 30)pid_cut = true;
+      if((*mom0)[i] > 0.1 && (*mom0)[i] < 1 && (*dEdx)[i] < 30)pid_cut = true;
       for(int j=0;j<(*nhtrack)[i];j++){
 	//init.
 	y_cut = false;
@@ -164,7 +164,7 @@ void htofcalib_padgain(int runnumber){
       
   }
 
-  TFile *f = new TFile(Form("result/260616/htofcalib-padgain-run0%d-260616.root",runnumber),"RECREATE");
+  TFile *f = new TFile(Form("result/260629/htofcalib-padgain-run0%d-260629.root",runnumber),"RECREATE");
   
   auto c1 = new TCanvas("c1","c1");
   gStyle->SetOptStat(0);
