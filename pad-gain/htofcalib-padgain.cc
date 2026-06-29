@@ -3,12 +3,12 @@
 
 void htofcalib_padgain(int runnumber){
   gROOT->SetBatch(kTRUE);
-  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_260626";
-  //string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/physics-735";
+  //string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/gain_calib_260626";
+  string dir = "/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/physics-735";
   TFile *file = new TFile(Form("%s/run0%d_DstTPCHelixTracking.root",dir.c_str(),runnumber));
   TTree *tree = (TTree*)file->Get("tpc");
-  string outpdf = Form("result/260629/htofcalib-padgain-run0%d-260629.pdf", runnumber);
-  //string outpdf = Form("result/physics-735/htofcalib-padgain-run0%d.pdf", runnumber);
+  //string outpdf = Form("result/260629/htofcalib-padgain-run0%d-260629.pdf", runnumber);
+  string outpdf = Form("result/physics-735/htofcalib-padgain-run0%d.pdf", runnumber);
 
 
   vector<double>* mom0 = nullptr;
@@ -164,7 +164,8 @@ void htofcalib_padgain(int runnumber){
       
   }
 
-  TFile *f = new TFile(Form("result/260629/htofcalib-padgain-run0%d-260629.root",runnumber),"RECREATE");
+  //TFile *f = new TFile(Form("result/260629/htofcalib-padgain-run0%d-260629.root",runnumber),"RECREATE");
+  TFile *f = new TFile(Form("result/physics-735/htofcalib-padgain-run0%d.root",runnumber),"RECREATE");
   
   auto c1 = new TCanvas("c1","c1");
   gStyle->SetOptStat(0);
