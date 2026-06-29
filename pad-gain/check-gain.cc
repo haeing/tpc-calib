@@ -1,6 +1,6 @@
 #include "../TPCPadHelper_260416.hh"
 
-void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260626")
+void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260629")
 {
   TH2Poly *hGain = new TH2Poly("hGain","hGain",MinZ,MaxZ,MinX,MaxX);
 
@@ -58,6 +58,7 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260626")
         if(aty == 0){
           int padid = tpc::GetPadId(layer, row);
 	  cout<<padid+1<<" : "<<p1<<endl;
+	  if(std::find(std::begin(tpc::padOnCenterFrame),std::end(tpc::padOnCenterFrame),padid)!=std::end(tpc::padOnCenterFrame)){continue;}
 	  hGain->SetBinContent(padid+1, 200.0 / p1);
         }
 
@@ -72,8 +73,8 @@ void check_gain(const char* param_in  = "param_history/TPCParam_e72_20260626")
   gStyle->SetPadRightMargin(0.15);
   hGain->SetTitle(";Z [mm];X [mm]");
   hGain->Draw("colz");
-  c1->SaveAs("result/260626/check-gain-260626.pdf");
-  TFile *f = new TFile("result/260626/check-gain-260626.root","RECREATE");
+  c1->SaveAs("result/260629/check-gain-260629.pdf");
+  TFile *f = new TFile("result/260629/check-gain-260629.root","RECREATE");
   hGain->Write();
   f->Close();
 
