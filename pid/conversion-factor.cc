@@ -392,8 +392,8 @@ void conversion_factor()
 
 
 
-  const double new_conv = f_p->GetParameter(0);
-  //const double new_conv = 8128.17;
+  //const double new_conv = f_p->GetParameter(0);
+  const double new_conv = 12171.3;
 
   // PID mean curves
   TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
@@ -408,7 +408,7 @@ void conversion_factor()
   TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -3.0, xmin, xmax);
   TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  3.0, xmin, xmax);
 
-  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -2.0, xmin, xmax);
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -4.0, xmin, xmax);
   TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
 
   TGraph* g_pi_low_1sigma  = MakePIDCurve("g_pi_low_1sigma",  kmyPion,   new_conv, -1.0, xmin, xmax);
@@ -419,7 +419,7 @@ void conversion_factor()
   // pi/proton separation cut
   TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
 
-  const double pi_p_sep_threshold = 3.0;
+  const double pi_p_sep_threshold = 6.0;
   const int n_sep_scan = 800;
   
 
