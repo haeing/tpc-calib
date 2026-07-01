@@ -1,6 +1,9 @@
 #include "../TPCPadHelper_260416.hh"
 
-const int runnumber[8] = {2489,2599, 2601, 2602, 2603, 2604, 2606, 2607};
+//const int runnumber[8] = {2489,2599, 2601, 2602, 2603, 2604, 2606, 2607};
+
+const int runnumber[1] = {2447};
+const int nrun = sizeof(runnumber) / sizeof(runnumber[0]);
 struct FitResult {
   TF1  *f = nullptr;
   TH1D *h = nullptr;
@@ -48,7 +51,8 @@ FitResult FitLandauWithRetry(TH1D *hraw){
 
 void htofcalib_padgain_combine(){
   gROOT->SetBatch(kTRUE);
-  string outpdf = "result/260629/htofcalib-padgain-combine-260629.pdf";
+  //string outpdf = "result/260629/htofcalib-padgain-combine-260629.pdf";
+  string outpdf = "result/physics-735/htofcalib-padgain-combine.pdf";
   
   TH1D *hist_de[NumOfPadTPC];
 
@@ -96,8 +100,9 @@ void htofcalib_padgain_combine(){
     }
   }
   
-  for(int i=0;i<8;i++){
-    TFile *file = new TFile(Form("result/260629/htofcalib-padgain-run0%d-260629.root",runnumber[i]));
+  for(int i=0;i<nrun;i++){
+    //TFile *file = new TFile(Form("result/260629/htofcalib-padgain-run0%d-260629.root",runnumber[i]));
+    TFile *file = new TFile(Form("result/physics-735/htofcalib-padgain-run0%d.root",runnumber[i]));
     TH2Poly *TPC_tr_cluster = (TH2Poly*)file->Get("TPC_tr_cluster");
     
     for(int n=0;n<TPC_tr_cluster->GetNumberOfBins();n++){
@@ -118,7 +123,8 @@ void htofcalib_padgain_combine(){
   }
 
 
-  TFile *f = new TFile("result/260629/htofcalib-padgain-combine-260629.root","RECREATE");
+  //TFile *f = new TFile("result/260629/htofcalib-padgain-combine-260629.root","RECREATE");
+  TFile *f = new TFile("result/physics-735/htofcalib-padgain-combine.root","RECREATE");
   
   auto c1 = new TCanvas("c1","c1");
   gStyle->SetOptStat(0);

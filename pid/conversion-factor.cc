@@ -186,11 +186,24 @@ double PiProtonSeparationCut(double poq, double conv)
   const double avg_sigma = 0.5 * (sigma_pi + sigma_p);
   const double separation_power = TMath::Abs(dedx_pi - dedx_p) / avg_sigma;
 
-  // Kinematics.cc와 같은 정의
   if (dedx_pi < dedx_p)
     return dedx_pi + 0.5 * separation_power * sigma_pi;
   else
     return dedx_p + 0.5 * separation_power * sigma_p;
+}
+
+double PiProtonSeparationPower(double poq, double conv)
+{
+  const double dedx_pi = PIDMean(poq, kmyPion, conv);
+  const double dedx_p  = PIDMean(poq, kmyProton, conv);
+
+  const double sigma_pi = PIDSigma(poq, kmyPion);
+  const double sigma_p  = PIDSigma(poq, kmyProton);
+  const double avg_sigma = 0.5 * (sigma_pi + sigma_p);
+
+  if (avg_sigma <= 0.) return 0.;
+
+  return TMath::Abs(dedx_pi - dedx_p) / avg_sigma;
 }
 
 TGraph* MakePIDCurve(
@@ -232,16 +245,19 @@ TGraph* MakePiProtonCutCurve(
 
   return g;
 }
+
   
 }
 
 void conversion_factor()
 {
+  gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
   gStyle->SetOptFit(1111);
+  gStyle->SetOptTitle(0);
 
   //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
-  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking_noiseoff.root", "READ");
+  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking.root", "READ");
   if (!fin || fin->IsZombie()) {
     std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
     return;
@@ -377,7 +393,7 @@ void conversion_factor()
 
 
   const double new_conv = f_p->GetParameter(0);
-  //const double new_conv = 7000;
+  //const double new_conv = 8128.17;
 
   // PID mean curves
   TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
@@ -392,11 +408,19 @@ void conversion_factor()
   TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -3.0, xmin, xmax);
   TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  3.0, xmin, xmax);
 
-  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -4.0, xmin, xmax);
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -2.0, xmin, xmax);
   TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
+
+  TGraph* g_pi_low_1sigma  = MakePIDCurve("g_pi_low_1sigma",  kmyPion,   new_conv, -1.0, xmin, xmax);
+  TGraph* g_pi_high_1sigma = MakePIDCurve("g_pi_high_1sigma", kmyPion,   new_conv,  1.0, xmin, xmax);
+  TGraph* g_p_low_1sigma   = MakePIDCurve("g_p_low_1sigma",   kmyProton, new_conv, -1.0, xmin, xmax);
+  TGraph* g_p_high_1sigma  = MakePIDCurve("g_p_high_1sigma",  kmyProton, new_conv,  1.0, xmin, xmax);
 
   // pi/proton separation cut
   TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
+
+  const double pi_p_sep_threshold = 3.0;
+  const int n_sep_scan = 800;
   
 
   TCanvas* c = new TCanvas("c_conversion_factor", "conversion factor", 900, 700);
@@ -407,6 +431,31 @@ void conversion_factor()
   h2->GetXaxis()->SetTitle("q#timesp [GeV/c]");
   h2->GetYaxis()->SetTitle("dE/dx (a.u.)");
   h2->Draw("colz");
+
+  TBox* sep_box_for_legend = nullptr;
+  bool in_sep_region = false;
+  double sep_region_start = xmin;
+  for (int i = 0; i < n_sep_scan; ++i) {
+    const double poq = xmin + (xmax - xmin) * i / (n_sep_scan - 1);
+    const bool pass_sep = PiProtonSeparationPower(poq, new_conv) >= pi_p_sep_threshold;
+
+    if (pass_sep && !in_sep_region) {
+      sep_region_start = poq;
+      in_sep_region = true;
+    }
+
+    const bool close_region = in_sep_region && (!pass_sep || i == n_sep_scan - 1);
+    if (close_region) {
+      const double sep_region_end = pass_sep ? poq : xmin + (xmax - xmin) * (i - 1) / (n_sep_scan - 1);
+      TBox* box = new TBox(sep_region_start, ymin, sep_region_end, ymax);
+      box->SetFillColor(kGray+1);
+      box->SetFillStyle(3004);
+      box->SetLineColor(0);
+      box->Draw("same");
+      if (!sep_box_for_legend) sep_box_for_legend = box;
+      in_sep_region = false;
+    }
+  }
 
   f_p->Draw("same");
 
@@ -430,6 +479,10 @@ void conversion_factor()
   g_k_high->SetLineColor(kGreen+2);
   g_p_low->SetLineColor(kRed);
   g_p_high->SetLineColor(kRed);
+  g_pi_low_1sigma->SetLineColor(kBlue);
+  g_pi_high_1sigma->SetLineColor(kBlue);
+  g_p_low_1sigma->SetLineColor(kRed);
+  g_p_high_1sigma->SetLineColor(kRed);
   g_picut->SetLineColor(kMagenta+2);
   
   g_pi_low->SetLineStyle(2);
@@ -438,20 +491,35 @@ void conversion_factor()
   g_k_high->SetLineStyle(2);
   g_p_low->SetLineStyle(2);
   g_p_high->SetLineStyle(2);
+  g_pi_low_1sigma->SetLineStyle(3);
+  g_pi_high_1sigma->SetLineStyle(3);
+  g_p_low_1sigma->SetLineStyle(3);
+  g_p_high_1sigma->SetLineStyle(3);
   g_picut->SetLineStyle(9);
+
+  g_pi_low_1sigma->SetLineWidth(2);
+  g_pi_high_1sigma->SetLineWidth(2);
+  g_p_low_1sigma->SetLineWidth(2);
+  g_p_high_1sigma->SetLineWidth(2);
 
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
   g_e_mean->Draw("L same");
-  /*
+
+  g_pi_low_1sigma->Draw("L same");
+  g_pi_high_1sigma->Draw("L same");
+  g_p_low_1sigma->Draw("L same");
+  g_p_high_1sigma->Draw("L same");
+  
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
   g_k_low->Draw("L same");
   g_k_high->Draw("L same");
   g_p_low->Draw("L same");
   g_p_high->Draw("L same");
-  */
+
+
   g_picut->Draw("L same");
   
 
@@ -461,15 +529,17 @@ void conversion_factor()
   leg->SetTextSize(0.03);
   leg->AddEntry(g_e_mean, "#it{e}", "l");
   leg->AddEntry(g_pi_mean, "#pi", "l");
-  //leg->AddEntry(g_pi_low,  "#pi #pm 3#sigma", "l");
+  leg->AddEntry(g_pi_low_1sigma, "#pi #pm 1#sigma from PIDSigma", "l");
 
   leg->AddEntry(g_k_mean,  "#it{K}", "l");
-  //leg->AddEntry(g_k_low,   "K #pm 3#sigma", "l");
 
   leg->AddEntry(g_p_mean,  "#it{p}", "l");
-  //leg->AddEntry(g_p_low,   "p -4#sigma / +6#sigma", "l");
+  leg->AddEntry(g_p_low_1sigma, "p #pm 1#sigma from PIDSigma", "l");
 
   leg->AddEntry(g_picut,   "#pi-#it{p} separation cut", "l");
+  if (sep_box_for_legend) {
+    leg->AddEntry(sep_box_for_legend, "#pi-#it{p} sep. power #geq 6", "f");
+  }
 
   leg->Draw();
 
@@ -478,6 +548,21 @@ void conversion_factor()
   g->Write();
   f_init->Write();
   f_p->Write();
+  g_pi_mean->Write();
+  g_k_mean->Write();
+  g_p_mean->Write();
+  g_e_mean->Write();
+  g_pi_low->Write();
+  g_pi_high->Write();
+  g_k_low->Write();
+  g_k_high->Write();
+  g_p_low->Write();
+  g_p_high->Write();
+  g_pi_low_1sigma->Write();
+  g_pi_high_1sigma->Write();
+  g_p_low_1sigma->Write();
+  g_p_high_1sigma->Write();
+  g_picut->Write();
   c->Write();
   fout->Close();
 

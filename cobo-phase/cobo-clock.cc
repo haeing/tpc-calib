@@ -1,5 +1,5 @@
 const int NCobo = 8;
-const int runnumber = 2448;
+const int runnumber = 3772;
 const bool param_update = true;
 Double_t ClockShiftFunc(Double_t *x, Double_t *par)
 {
@@ -126,7 +126,7 @@ void cobo_clock(){
   TH2D *h2[NCobo];
   TH2D *h2_cor[NCobo];
   double p1[NCobo]={0.};
-  if(runnumber == 2448){
+  if(runnumber == 2448 || runnumber == 2447){
     p1[0] = 19.5;
     p1[1] = 18.8;
     p1[2] = 18.5;
@@ -145,6 +145,16 @@ void cobo_clock(){
     p1[5] = 19.5;
     p1[6] = 18.9;
     p1[7] = 19.3;
+  }
+  else if(runnumber == 3772){
+    p1[0] = 23.;
+    p1[1] = 21.4;
+    p1[2] = 21.2;
+    p1[3] = 22.9;
+    p1[4] = 20.2;
+    p1[5] = 21.0;
+    p1[6] = 20.5;
+    p1[7] = 21.3;
   }
   double p0_fit[NCobo];
   double p1_fit[NCobo];
