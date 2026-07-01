@@ -221,7 +221,8 @@ TGraph* MakePIDCurve(
   for (int i = 0; i < n; ++i) {
     const double poq = xmin + (xmax - xmin) * i / (n - 1);
     const double y = PIDBoundary(poq, pid, conv, nsigma);
-    g->SetPoint(i, poq, y);
+    if(y>0)
+      g->SetPoint(i, poq, y);
   }
 
   return g;
@@ -257,7 +258,7 @@ void conversion_factor()
   gStyle->SetOptTitle(0);
 
   //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
-  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/physics-735/run02447_DstTPCHelixTracking.root", "READ");
+  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/gain_calib_260701/run02447_DstTPCHelixTracking.root", "READ");
   if (!fin || fin->IsZombie()) {
     std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
     return;
@@ -392,8 +393,8 @@ void conversion_factor()
 
 
 
-  //const double new_conv = f_p->GetParameter(0);
-  const double new_conv = 12171.3;
+  const double new_conv = f_p->GetParameter(0);
+  //const double new_conv = 12171.3;
 
   // PID mean curves
   TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
@@ -405,11 +406,22 @@ void conversion_factor()
   TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kmyPion,   new_conv, -3.0, xmin, xmax);
   TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kmyPion,   new_conv,  3.0, xmin, xmax);
 
+  //E72
+  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -2.0, xmin, xmax);
+  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  2.0, xmin, xmax);
+
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -1.5, xmin, xmax);
+  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
+
+
+  //E42
+  /*
   TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -3.0, xmin, xmax);
   TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  3.0, xmin, xmax);
 
   TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -4.0, xmin, xmax);
   TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
+  */
 
   TGraph* g_pi_low_1sigma  = MakePIDCurve("g_pi_low_1sigma",  kmyPion,   new_conv, -1.0, xmin, xmax);
   TGraph* g_pi_high_1sigma = MakePIDCurve("g_pi_high_1sigma", kmyPion,   new_conv,  1.0, xmin, xmax);
@@ -419,7 +431,7 @@ void conversion_factor()
   // pi/proton separation cut
   TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
 
-  const double pi_p_sep_threshold = 6.0;
+  const double pi_p_sep_threshold = 3.0;
   const int n_sep_scan = 800;
   
 
@@ -543,6 +555,25 @@ void conversion_factor()
 
   leg->Draw();
 
+  auto mg = new TMultiGraph("mg","mg");
+  mg->Add(g_pi_mean);
+  mg->Add(g_k_mean);
+  mg->Add(g_p_mean);
+
+  mg->Add(g_pi_low);
+  mg->Add(g_pi_high);
+  mg->Add(g_k_low);
+  mg->Add(g_k_high);
+  mg->Add(g_p_low);
+  mg->Add(g_p_high);
+
+  TCanvas *c2 = new TCanvas("c2","c2");
+  mg->Draw("L");
+  
+    
+
+  
+
   TFile* fout = TFile::Open("result/conversion-factor.root", "RECREATE");
   h2->Write("h2_dedx_merged");
   g->Write();
@@ -564,6 +595,7 @@ void conversion_factor()
   g_p_high_1sigma->Write();
   g_picut->Write();
   c->Write();
+  c2->Write();
   fout->Close();
 
   c->cd();
