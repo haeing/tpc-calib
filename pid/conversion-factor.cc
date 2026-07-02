@@ -1,3 +1,7 @@
+#include <iostream>
+#include <vector>
+
+const std::vector<int> run_numbers = {2447, 2450,2451,2452,2453,2454,2456,2457,2458,2459};
 namespace  {
 
 const double me = 0.5109989461; // MeV/c2
@@ -373,6 +377,73 @@ void SaveStepPDF(TCanvas* c, const char* multipage_pdf, bool first, bool last)
   }
 }
 
+void SaveStepCanvas(
+    TCanvas* c,
+    const char* multipage_pdf,
+    const char* multipage_logy_pdf,
+    bool first,
+    bool last,
+    std::vector<TCanvas*>& step_canvases,
+    int& step_id)
+{
+  c->SetLogy(0);
+  c->Modified();
+  SaveStepPDF(c, multipage_pdf, first, last);
+  TCanvas* c_linear = (TCanvas*)c->Clone(Form("c_step%02d", step_id));
+  c_linear->SetTitle(Form("step %02d", step_id));
+  step_canvases.push_back(c_linear);
+
+  c->SetLogy(1);
+  c->Modified();
+  SaveStepPDF(c, multipage_logy_pdf, first, last);
+  TCanvas* c_logy = (TCanvas*)c->Clone(Form("c_step%02d_logy", step_id));
+  c_logy->SetTitle(Form("step %02d log y", step_id));
+  step_canvases.push_back(c_logy);
+
+  c->SetLogy(0);
+  c->Modified();
+  ++step_id;
+}
+
+TH2D* LoadAndMergePIDHist(
+    const std::vector<int>& run_numbers,
+    const char* input_dir,
+    const char* file_format,
+    const char* histname)
+{
+  TH2D* h_merged = nullptr;
+
+  for (int run : run_numbers) {
+    TString filename = Form(file_format, input_dir, run);
+    TFile* fin = TFile::Open(filename, "READ");
+    if (!fin || fin->IsZombie()) {
+      std::cerr << "Cannot open " << filename << std::endl;
+      if (fin) fin->Close();
+      continue;
+    }
+
+    TH2D* h_in = (TH2D*)fin->Get(histname);
+    if (!h_in) {
+      std::cerr << "Cannot find " << histname << " in " << filename << std::endl;
+      fin->Close();
+      continue;
+    }
+
+    if (!h_merged) {
+      h_merged = (TH2D*)h_in->Clone("h2_dedx_merged_clone");
+      h_merged->SetDirectory(nullptr);
+    } else {
+      h_merged->Add(h_in);
+    }
+
+    std::cout << "[add] run " << run << " : " << filename
+              << " entries=" << h_in->GetEntries() << std::endl;
+    fin->Close();
+  }
+
+  return h_merged;
+}
+
 bool PassPiProtonSeparationSide(PIDParticle pid, double poq, double y, double conv)
 {
   const double dedx_pi = PIDMean(poq, kmyPion, conv);
@@ -448,29 +519,21 @@ void conversion_factor()
   gStyle->SetOptFit(0);
   gStyle->SetOptTitle(0);
 
-  //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
-  TFile* fin = TFile::Open("~/data/JPARC2025Nov_root/gain_calib_260701/run02447_DstTPCHelixTracking.root", "READ");
-  if (!fin || fin->IsZombie()) {
-    std::cerr << "Cannot open result/dedx_sigma_fit.root" << std::endl;
+  
+  const char* input_dir = "~/data/JPARC2025Nov_root/physics-735";
+  const char* input_file_format = "%s/run%05d_DstTPCHelixTracking.root";
+  const char* input_histname = "PID_dEdx_vs_SignedMom";
+
+  TH2D* h2 = LoadAndMergePIDHist(run_numbers, input_dir, input_file_format, input_histname);
+  if (!h2) {
+    std::cerr << "No input histograms were loaded." << std::endl;
     return;
   }
-
-  //TH2D* h2_in = (TH2D*)fin->Get("h2_dedx_merged");
-  TH2D* h2_in = (TH2D*)fin->Get("PID_dEdx_vs_SignedMom");
-  if (!h2_in) {
-    std::cerr << "Cannot find h2_dedx_merged" << std::endl;
-    fin->Close();
-    return;
-  }
-
-  TH2D* h2 = (TH2D*)h2_in->Clone("h2_dedx_merged_clone");
-  h2->SetDirectory(nullptr);
-  fin->Close();
 
   const double xmin = -2.0;
   const double xmax = 2.0;
-  const double ymin = 0.0;
-  const double ymax = 400.0;
+  const double ymin = 1.0;
+  const double ymax = 300.0;
 
   //const double pstart = 0.15;
   const double pstart = 0;
@@ -481,7 +544,7 @@ void conversion_factor()
   const int min_entries = 100;
 
   TF1* f_init = new TF1("f_init_proton_bethe", ProtonBethe, 0.05, 2.0, 1);
-  f_init->SetParameter(0, 8500.0);
+  f_init->SetParameter(0, 7000.0);
 
   TGraphErrors* g = new TGraphErrors();
   g->SetName("g_proton_peak");
@@ -560,11 +623,13 @@ void conversion_factor()
 
   TF1* f_p = new TF1("f_proton_bethe", ProtonBethe, pstart, pend, 1);
   f_p->SetParName(0, "conversion_factor");
-  f_p->SetParameter(0, 8500.);
-  f_p->SetParLimits(0, 6000., 10000.);
+  f_p->SetParameter(0, 8000.);
+  f_p->SetParLimits(0, 7388., 9000.);
+  
   f_p->SetLineColor(kRed);
   f_p->SetLineWidth(3);
 
+  //g->Fit(f_p, "R","",pstart,0.7);
   g->Fit(f_p, "R");
 
   std::cout << "\nconversion_factor = "
@@ -658,7 +723,11 @@ void conversion_factor()
   g->SetMarkerColor(kBlack);
   g->SetLineColor(kBlack);
 
-  TString multipage_pdf = Form("result/conversion-factor_%s.pdf", pid_cut.output_tag);
+  TString multipage_pdf = Form("result/conversion-factor_%s_ana.pdf", pid_cut.output_tag);
+  TString multipage_logy_pdf = Form("result/conversion-factor_%s_logy_ana.pdf", pid_cut.output_tag);
+  std::vector<TCanvas*> step_canvases;
+  int step_id = 1;
+
   TCanvas* c = new TCanvas("c_conversion_factor", "conversion factor", 900, 700);
   c->SetLogz();
 
@@ -685,7 +754,7 @@ void conversion_factor()
   leg_step1->AddEntry(g_p_mean, "#it{p} mean", "l");
   leg_step1->AddEntry(g_pi_low_1sigma, "#pm1#sigma", "l");
   leg_step1->Draw();
-  SaveStepPDF(c, multipage_pdf.Data(), true, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), true, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -703,7 +772,7 @@ void conversion_factor()
   leg_step2->AddEntry(g_picut, "#pi-#it{p} separation cut", "l");
   if (sep_box_for_legend) leg_step2->AddEntry(sep_box_for_legend, Form("sep. power #geq %.1f", pi_p_sep_threshold), "f");
   leg_step2->Draw();
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -724,7 +793,7 @@ void conversion_factor()
   leg_step3->AddEntry(g_k_low, Form("#it{K}: %.1f#sigma to +%.1f#sigma", pid_cut.kaon_low, pid_cut.kaon_high), "l");
   leg_step3->AddEntry(g_p_low, Form("#it{p}: #geq %.1f#sigma", pid_cut.proton_low), "l");
   leg_step3->Draw();
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -732,7 +801,7 @@ void conversion_factor()
   g_pi_mean->Draw("L same");
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -740,14 +809,14 @@ void conversion_factor()
   g_k_mean->Draw("L same");
   g_k_low->Draw("L same");
   g_k_high->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
   DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
   g_p_mean->Draw("L same");
   g_p_low->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   TH2D* h_pi_cut = MakePIDWindowHist(h2, "h2_pid_cut_pion", kmyPion, new_conv, pid_cut.pion_low, pid_cut.pion_high, pi_p_sep_threshold);
   TH2D* h_k_cut = MakePIDWindowHist(h2, "h2_pid_cut_kaon", kmyKaon, new_conv, pid_cut.kaon_low, pid_cut.kaon_high, pi_p_sep_threshold);
@@ -761,14 +830,14 @@ void conversion_factor()
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
   g_picut->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
   DrawBasePIDPlot(h_k_cut, xmin, xmax, ymin, ymax);
   g_k_low->Draw("L same");
   g_k_high->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -776,7 +845,7 @@ void conversion_factor()
   DrawSeparationPowerRegions(new_conv, pi_p_sep_threshold, xmin, xmax, ymin, ymax, n_sep_scan);
   g_p_low->Draw("L same");
   g_picut->Draw("L same");
-  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, false, step_canvases, step_id);
 
   c->Clear();
   c->SetLogz();
@@ -809,7 +878,7 @@ void conversion_factor()
   leg->AddEntry(g_p_mean, "#it{p}", "l");
   leg->AddEntry(g_picut, "#pi-#it{p} separation cut", "l");
   leg->Draw();
-  SaveStepPDF(c, multipage_pdf.Data(), false, true);
+  SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), false, true, step_canvases, step_id);
 
   auto mg = new TMultiGraph("mg", "mg");
   mg->Add(g_pi_mean);
@@ -825,7 +894,7 @@ void conversion_factor()
   TCanvas *c2 = new TCanvas("c2", "c2");
   mg->Draw("L");
 
-  TFile* fout = TFile::Open(Form("result/conversion-factor_%s.root", pid_cut.output_tag), "RECREATE");
+  TFile* fout = TFile::Open(Form("result/conversion-factor_%s_ana.root", pid_cut.output_tag), "RECREATE");
   h2->Write("h2_dedx_merged");
   g->Write();
   f_init->Write();
@@ -852,6 +921,9 @@ void conversion_factor()
   h_pi_cut->Write();
   h_k_cut->Write();
   h_p_cut->Write();
+  for (TCanvas* c_step : step_canvases) {
+    if (c_step) c_step->Write();
+  }
   c->Write();
   c2->Write();
   fout->Close();
