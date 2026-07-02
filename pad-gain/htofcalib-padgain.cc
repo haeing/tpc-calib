@@ -1,4 +1,4 @@
-#include "../TPCPadHelper_260416.hh"
+#include "../TPCPadHelper.hh"
 
 
 void htofcalib_padgain(int runnumber){
@@ -48,8 +48,6 @@ void htofcalib_padgain(int runnumber){
   tree->SetBranchAddress("dEdx",&dEdx);
   tree->SetBranchAddress("nhtrack",&nhtrack);
 
-  tree->SetBranchAddress("mom0",&mom0);
-  tree->SetBranchAddress("dEdx",&dEdx);
   tree->SetBranchAddress("hitlayer",&hitlayer);
   tree->SetBranchAddress("theta_diff",&theta_diff);
   tree->SetBranchAddress("track_cluster_de",&track_cluster_de);

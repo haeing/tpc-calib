@@ -10,6 +10,60 @@ enum PIDParticle {
   kmyKaon     = 2,
   kmyProton   = 3
 };
+
+enum PIDPreset {
+  kPIDPresetE42 = 0,
+  kPIDPresetE72 = 1
+};
+
+struct PIDCutConfig {
+  const char* label;
+  const char* output_tag;
+  double pion_low;
+  double pion_high;
+  double kaon_low;
+  double kaon_high;
+  double proton_low;
+  double pi_p_sep_threshold;
+  bool use_fit_conversion;
+  double fixed_conversion;
+};
+
+PIDCutConfig GetPIDCutConfig(PIDPreset preset)
+{
+  if (preset == kPIDPresetE72) {
+    return {"E72", "e72", -3.0, 3.0, -2.0, 2.0, -1.5, 3.0, true, 0.0};
+  }
+
+  return {"E42", "e42", -3.0, 3.0, -3.0, 3.0, -4.0, 6.0, false, 12171.3};
+}
+
+const char* PIDName(PIDParticle pid)
+{
+  if (pid == kmyElectron) return "electron";
+  if (pid == kmyPion)     return "pion";
+  if (pid == kmyKaon)     return "kaon";
+  if (pid == kmyProton)   return "proton";
+  return "unknown";
+}
+
+const char* PIDLatex(PIDParticle pid)
+{
+  if (pid == kmyElectron) return "#it{e}";
+  if (pid == kmyPion)     return "#pi";
+  if (pid == kmyKaon)     return "#it{K}";
+  if (pid == kmyProton)   return "#it{p}";
+  return "";
+}
+
+int PIDColor(PIDParticle pid)
+{
+  if (pid == kmyElectron) return kBlack;
+  if (pid == kmyPion)     return kBlue;
+  if (pid == kmyKaon)     return kGreen+2;
+  if (pid == kmyProton)   return kRed;
+  return kGray+2;
+}
   
 
   double DensityEffectCorrection(double betagamma, double* par)
@@ -247,6 +301,143 @@ TGraph* MakePiProtonCutCurve(
   return g;
 }
 
+void StylePIDCurve(TGraph* g, PIDParticle pid, int line_style = 1, int line_width = 2)
+{
+  g->SetLineColor(PIDColor(pid));
+  g->SetLineStyle(line_style);
+  g->SetLineWidth(line_width);
+}
+
+void DrawBasePIDPlot(TH2D* h2, double xmin, double xmax, double ymin, double ymax)
+{
+  h2->GetXaxis()->SetRangeUser(xmin, xmax);
+  h2->GetYaxis()->SetRangeUser(ymin, ymax);
+  h2->GetXaxis()->SetTitle("#it{p/z} [GeV/#it{c}]");
+  h2->GetYaxis()->SetTitle("TPC #LT#it{dE/dx}#GT (a.u.)");
+  h2->Draw("colz");
+}
+
+TBox* DrawSeparationPowerRegions(
+    double conv,
+    double threshold,
+    double xmin,
+    double xmax,
+    double ymin,
+    double ymax,
+    int nscan = 800)
+{
+  TBox* first_box = nullptr;
+  bool in_sep_region = false;
+  double sep_region_start = xmin;
+
+  for (int i = 0; i < nscan; ++i) {
+    const double poq = xmin + (xmax - xmin) * i / (nscan - 1);
+    const bool pass_sep = PiProtonSeparationPower(poq, conv) >= threshold;
+
+    if (pass_sep && !in_sep_region) {
+      sep_region_start = poq;
+      in_sep_region = true;
+    }
+
+    const bool close_region = in_sep_region && (!pass_sep || i == nscan - 1);
+    if (close_region) {
+      const double sep_region_end = pass_sep
+        ? poq
+        : xmin + (xmax - xmin) * (i - 1) / (nscan - 1);
+      TBox* box = new TBox(sep_region_start, ymin, sep_region_end, ymax);
+      box->SetFillColorAlpha(kOrange+7, 0.35);
+      box->SetFillStyle(1001);
+      box->SetLineColor(kOrange+7);
+      box->Draw("same");
+      if (!first_box) first_box = box;
+      in_sep_region = false;
+    }
+  }
+
+  return first_box;
+}
+
+
+void SaveStepPDF(TCanvas* c, const char* multipage_pdf, bool first, bool last)
+{
+  c->Update();
+
+  if (first && last) {
+    c->Print(multipage_pdf);
+  } else if (first) {
+    c->Print(Form("%s(", multipage_pdf));
+  } else if (last) {
+    c->Print(Form("%s)", multipage_pdf));
+  } else {
+    c->Print(multipage_pdf);
+  }
+}
+
+bool PassPiProtonSeparationSide(PIDParticle pid, double poq, double y, double conv)
+{
+  const double dedx_pi = PIDMean(poq, kmyPion, conv);
+  const double dedx_p  = PIDMean(poq, kmyProton, conv);
+  const double cut = PiProtonSeparationCut(poq, conv);
+
+  if (pid == kmyPion) {
+    return dedx_pi < dedx_p ? y <= cut : y >= cut;
+  }
+
+  if (pid == kmyProton) {
+    return dedx_pi < dedx_p ? y >= cut : y <= cut;
+  }
+
+  return true;
+}
+
+bool PassPIDWindow(
+    PIDParticle pid,
+    double poq,
+    double y,
+    double conv,
+    double nsigma_low,
+    double nsigma_high,
+    double sep_threshold)
+{
+  if ((pid == kmyPion || pid == kmyProton)
+      && PiProtonSeparationPower(poq, conv) >= sep_threshold) {
+    return PassPiProtonSeparationSide(pid, poq, y, conv);
+  }
+
+  const double low = PIDBoundary(poq, pid, conv, nsigma_low);
+  if (pid == kmyProton) return y >= low;
+
+  const double high = PIDBoundary(poq, pid, conv, nsigma_high);
+  return y >= TMath::Min(low, high) && y <= TMath::Max(low, high);
+}
+
+TH2D* MakePIDWindowHist(
+    TH2D* src,
+    const char* name,
+    PIDParticle pid,
+    double conv,
+    double nsigma_low,
+    double nsigma_high,
+    double sep_threshold)
+{
+  TH2D* h = (TH2D*)src->Clone(name);
+  h->SetDirectory(nullptr);
+  h->SetTitle("");
+
+  for (int ix = 1; ix <= h->GetNbinsX(); ++ix) {
+    const double poq = h->GetXaxis()->GetBinCenter(ix);
+    for (int iy = 1; iy <= h->GetNbinsY(); ++iy) {
+      const double y = h->GetYaxis()->GetBinCenter(iy);
+      if (!PassPIDWindow(pid, poq, y, conv, nsigma_low, nsigma_high, sep_threshold)) {
+        h->SetBinContent(ix, iy, 0.);
+        h->SetBinError(ix, iy, 0.);
+      }
+    }
+  }
+
+  return h;
+}
+
   
 }
 
@@ -254,7 +445,7 @@ void conversion_factor()
 {
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
-  gStyle->SetOptFit(1111);
+  gStyle->SetOptFit(0);
   gStyle->SetOptTitle(0);
 
   //TFile* fin = TFile::Open("result/dedx_sigma_fit.root", "READ");
@@ -279,7 +470,7 @@ void conversion_factor()
   const double xmin = -2.0;
   const double xmax = 2.0;
   const double ymin = 0.0;
-  const double ymax = 600.0;
+  const double ymax = 400.0;
 
   //const double pstart = 0.15;
   const double pstart = 0;
@@ -386,15 +577,24 @@ void conversion_factor()
   f_pi->SetParName(0, "conversion_factor");
   f_pi->SetParameter(0, f_p->GetParameter(0));
 
-  TF1* f_e = new TF1("f_pion_bethe", ElectronBethe, pstart, pend, 1);
+  TF1* f_e = new TF1("f_electron_bethe", ElectronBethe, pstart, pend, 1);
   f_e->SetParName(0, "conversion_factor");
   f_e->SetParameter(0, f_p->GetParameter(0));
 
 
 
 
-  const double new_conv = f_p->GetParameter(0);
-  //const double new_conv = 12171.3;
+  const PIDPreset pid_preset = kPIDPresetE72;
+  const PIDCutConfig pid_cut = GetPIDCutConfig(pid_preset);
+  const double new_conv = pid_cut.use_fit_conversion
+    ? f_p->GetParameter(0)
+    : pid_cut.fixed_conversion;
+
+  std::cout << "PID cut preset = " << pid_cut.label
+            << ", conversion factor = " << new_conv
+            << (pid_cut.use_fit_conversion ? " (fit)" : " (fixed)")
+            << ", pi-p separation threshold = " << pid_cut.pi_p_sep_threshold
+            << std::endl;
 
   // PID mean curves
   TGraph* g_pi_mean = MakePIDCurve("g_pi_mean", kmyPion, new_conv, 0.0, xmin, xmax);
@@ -403,25 +603,14 @@ void conversion_factor()
   TGraph* g_e_mean  = MakePIDCurve("g_e_mean",  kmyElectron, new_conv, 0.0, xmin, xmax);
 
   // PID boundaries
-  TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kmyPion,   new_conv, -3.0, xmin, xmax);
-  TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kmyPion,   new_conv,  3.0, xmin, xmax);
+  TGraph* g_pi_low  = MakePIDCurve("g_pi_low_3sigma",  kmyPion,   new_conv, pid_cut.pion_low, xmin, xmax);
+  TGraph* g_pi_high = MakePIDCurve("g_pi_high_3sigma", kmyPion,   new_conv, pid_cut.pion_high, xmin, xmax);
 
-  //E72
-  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -2.0, xmin, xmax);
-  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  2.0, xmin, xmax);
+  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, pid_cut.kaon_low, xmin, xmax);
+  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv, pid_cut.kaon_high, xmin, xmax);
 
-  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -1.5, xmin, xmax);
-  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
-
-
-  //E42
-  /*
-  TGraph* g_k_low   = MakePIDCurve("g_k_low_3sigma",   kmyKaon,   new_conv, -3.0, xmin, xmax);
-  TGraph* g_k_high  = MakePIDCurve("g_k_high_3sigma",  kmyKaon,   new_conv,  3.0, xmin, xmax);
-
-  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, -4.0, xmin, xmax);
-  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv,  6.0, xmin, xmax);
-  */
+  TGraph* g_p_low   = MakePIDCurve("g_p_low_3sigma",   kmyProton, new_conv, pid_cut.proton_low, xmin, xmax);
+  TGraph* g_p_high  = MakePIDCurve("g_p_high_3sigma",  kmyProton, new_conv, 0.0, xmin, xmax);
 
   TGraph* g_pi_low_1sigma  = MakePIDCurve("g_pi_low_1sigma",  kmyPion,   new_conv, -1.0, xmin, xmax);
   TGraph* g_pi_high_1sigma = MakePIDCurve("g_pi_high_1sigma", kmyPion,   new_conv,  1.0, xmin, xmax);
@@ -431,131 +620,198 @@ void conversion_factor()
   // pi/proton separation cut
   TGraph* g_picut = MakePiProtonCutCurve("g_pi_proton_separation_cut", new_conv, xmin, xmax);
 
-  const double pi_p_sep_threshold = 3.0;
+  const double pi_p_sep_threshold = pid_cut.pi_p_sep_threshold;
   const int n_sep_scan = 800;
   
 
-  TCanvas* c = new TCanvas("c_conversion_factor", "conversion factor", 900, 700);
-  c->SetLogz();
+  TGraph* g_e_low_1sigma  = MakePIDCurve("g_e_low_1sigma",  kmyElectron, new_conv, -1.0, xmin, xmax);
+  TGraph* g_e_high_1sigma = MakePIDCurve("g_e_high_1sigma", kmyElectron, new_conv,  1.0, xmin, xmax);
+  TGraph* g_k_low_1sigma  = MakePIDCurve("g_k_low_1sigma",  kmyKaon,     new_conv, -1.0, xmin, xmax);
+  TGraph* g_k_high_1sigma = MakePIDCurve("g_k_high_1sigma", kmyKaon,     new_conv,  1.0, xmin, xmax);
 
-  h2->GetXaxis()->SetRangeUser(xmin, xmax);
-  h2->GetYaxis()->SetRangeUser(ymin, ymax);
-  h2->GetXaxis()->SetTitle("q#timesp [GeV/c]");
-  h2->GetYaxis()->SetTitle("dE/dx (a.u.)");
-  h2->Draw("colz");
+  StylePIDCurve(g_e_mean, kmyElectron, 1, 2);
+  StylePIDCurve(g_pi_mean, kmyPion, 1, 2);
+  StylePIDCurve(g_k_mean, kmyKaon, 1, 2);
+  StylePIDCurve(g_p_mean, kmyProton, 1, 2);
 
-  TBox* sep_box_for_legend = nullptr;
-  bool in_sep_region = false;
-  double sep_region_start = xmin;
-  for (int i = 0; i < n_sep_scan; ++i) {
-    const double poq = xmin + (xmax - xmin) * i / (n_sep_scan - 1);
-    const bool pass_sep = PiProtonSeparationPower(poq, new_conv) >= pi_p_sep_threshold;
+  StylePIDCurve(g_e_low_1sigma, kmyElectron, 3, 2);
+  StylePIDCurve(g_e_high_1sigma, kmyElectron, 3, 2);
+  StylePIDCurve(g_pi_low_1sigma, kmyPion, 3, 2);
+  StylePIDCurve(g_pi_high_1sigma, kmyPion, 3, 2);
+  StylePIDCurve(g_k_low_1sigma, kmyKaon, 3, 2);
+  StylePIDCurve(g_k_high_1sigma, kmyKaon, 3, 2);
+  StylePIDCurve(g_p_low_1sigma, kmyProton, 3, 2);
+  StylePIDCurve(g_p_high_1sigma, kmyProton, 3, 2);
 
-    if (pass_sep && !in_sep_region) {
-      sep_region_start = poq;
-      in_sep_region = true;
-    }
-
-    const bool close_region = in_sep_region && (!pass_sep || i == n_sep_scan - 1);
-    if (close_region) {
-      const double sep_region_end = pass_sep ? poq : xmin + (xmax - xmin) * (i - 1) / (n_sep_scan - 1);
-      TBox* box = new TBox(sep_region_start, ymin, sep_region_end, ymax);
-      box->SetFillColor(kGray+1);
-      box->SetFillStyle(3004);
-      box->SetLineColor(0);
-      box->Draw("same");
-      if (!sep_box_for_legend) sep_box_for_legend = box;
-      in_sep_region = false;
-    }
-  }
-
-  f_p->Draw("same");
+  StylePIDCurve(g_pi_low, kmyPion, 2, 2);
+  StylePIDCurve(g_pi_high, kmyPion, 2, 2);
+  StylePIDCurve(g_k_low, kmyKaon, 2, 2);
+  StylePIDCurve(g_k_high, kmyKaon, 2, 2);
+  StylePIDCurve(g_p_low, kmyProton, 2, 2);
+  StylePIDCurve(g_p_high, kmyProton, 2, 2);
+  g_picut->SetLineColor(kMagenta+2);
+  g_picut->SetLineStyle(9);
+  g_picut->SetLineWidth(3);
 
   g->SetMarkerStyle(20);
   g->SetMarkerSize(0.9);
   g->SetMarkerColor(kBlack);
   g->SetLineColor(kBlack);
-  g->Draw("P same");
 
-  //f_pi->Draw("same");
-  //f_e->Draw("same");
+  TString multipage_pdf = Form("result/conversion-factor_%s.pdf", pid_cut.output_tag);
+  TCanvas* c = new TCanvas("c_conversion_factor", "conversion factor", 900, 700);
+  c->SetLogz();
 
-  g_pi_mean->SetLineColor(kBlue);
-  g_k_mean->SetLineColor(kGreen+2);
-  g_p_mean->SetLineColor(kRed);
-  g_e_mean->SetLineColor(kBlack);
-
-  g_pi_low->SetLineColor(kBlue);
-  g_pi_high->SetLineColor(kBlue);
-  g_k_low->SetLineColor(kGreen+2);
-  g_k_high->SetLineColor(kGreen+2);
-  g_p_low->SetLineColor(kRed);
-  g_p_high->SetLineColor(kRed);
-  g_pi_low_1sigma->SetLineColor(kBlue);
-  g_pi_high_1sigma->SetLineColor(kBlue);
-  g_p_low_1sigma->SetLineColor(kRed);
-  g_p_high_1sigma->SetLineColor(kRed);
-  g_picut->SetLineColor(kMagenta+2);
-  
-  g_pi_low->SetLineStyle(2);
-  g_pi_high->SetLineStyle(2);
-  g_k_low->SetLineStyle(2);
-  g_k_high->SetLineStyle(2);
-  g_p_low->SetLineStyle(2);
-  g_p_high->SetLineStyle(2);
-  g_pi_low_1sigma->SetLineStyle(3);
-  g_pi_high_1sigma->SetLineStyle(3);
-  g_p_low_1sigma->SetLineStyle(3);
-  g_p_high_1sigma->SetLineStyle(3);
-  g_picut->SetLineStyle(9);
-
-  g_pi_low_1sigma->SetLineWidth(2);
-  g_pi_high_1sigma->SetLineWidth(2);
-  g_p_low_1sigma->SetLineWidth(2);
-  g_p_high_1sigma->SetLineWidth(2);
-
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  g_e_mean->Draw("L same");
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
-  g_e_mean->Draw("L same");
-
+  g_e_low_1sigma->Draw("L same");
+  g_e_high_1sigma->Draw("L same");
   g_pi_low_1sigma->Draw("L same");
   g_pi_high_1sigma->Draw("L same");
+  g_k_low_1sigma->Draw("L same");
+  g_k_high_1sigma->Draw("L same");
   g_p_low_1sigma->Draw("L same");
   g_p_high_1sigma->Draw("L same");
-  
+  TLegend* leg_step1 = new TLegend(0.58, 0.58, 0.8, 0.88);
+  leg_step1->SetBorderSize(0);
+  leg_step1->SetFillColorAlpha(kWhite,0.8);
+  leg_step1->SetTextSize(0.03);
+  leg_step1->AddEntry(g_e_mean, "#it{e} mean", "l");
+  leg_step1->AddEntry(g_pi_mean, "#pi mean", "l");
+  leg_step1->AddEntry(g_k_mean, "#it{K} mean", "l");
+  leg_step1->AddEntry(g_p_mean, "#it{p} mean", "l");
+  leg_step1->AddEntry(g_pi_low_1sigma, "#pm1#sigma", "l");
+  leg_step1->Draw();
+  SaveStepPDF(c, multipage_pdf.Data(), true, false);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  TBox* sep_box_for_legend = DrawSeparationPowerRegions(new_conv, pi_p_sep_threshold, xmin, xmax, ymin, ymax, n_sep_scan);
+  g_pi_mean->Draw("L same");
+  g_p_mean->Draw("L same");
+  g_picut->Draw("L same");
+  TLegend* leg_step2 = new TLegend(0.56, 0.66, 0.8, 0.88);
+  leg_step2->SetBorderSize(0);
+  leg_step2->SetFillColorAlpha(kWhite,0.8);
+  leg_step2->SetTextSize(0.03);
+  leg_step2->AddEntry(g_pi_mean, "#pi mean", "l");
+  leg_step2->AddEntry(g_p_mean, "#it{p} mean", "l");
+  leg_step2->AddEntry(g_picut, "#pi-#it{p} separation cut", "l");
+  if (sep_box_for_legend) leg_step2->AddEntry(sep_box_for_legend, Form("sep. power #geq %.1f", pi_p_sep_threshold), "f");
+  leg_step2->Draw();
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  g_pi_mean->Draw("L same");
+  g_k_mean->Draw("L same");
+  g_p_mean->Draw("L same");
   g_pi_low->Draw("L same");
   g_pi_high->Draw("L same");
   g_k_low->Draw("L same");
   g_k_high->Draw("L same");
   g_p_low->Draw("L same");
-  g_p_high->Draw("L same");
+  TLegend* leg_step3 = new TLegend(0.55, 0.62, 0.8, 0.88);
+  leg_step3->SetBorderSize(0);
+  leg_step3->SetFillColorAlpha(kWhite,0.8);
+  leg_step3->SetTextSize(0.03);
+  leg_step3->AddEntry(g_pi_low, Form("#pi: %.1f#sigma to +%.1f#sigma", pid_cut.pion_low, pid_cut.pion_high), "l");
+  leg_step3->AddEntry(g_k_low, Form("#it{K}: %.1f#sigma to +%.1f#sigma", pid_cut.kaon_low, pid_cut.kaon_high), "l");
+  leg_step3->AddEntry(g_p_low, Form("#it{p}: #geq %.1f#sigma", pid_cut.proton_low), "l");
+  leg_step3->Draw();
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
 
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  g_pi_mean->Draw("L same");
+  g_pi_low->Draw("L same");
+  g_pi_high->Draw("L same");
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
 
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  g_k_mean->Draw("L same");
+  g_k_low->Draw("L same");
+  g_k_high->Draw("L same");
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  g_p_mean->Draw("L same");
+  g_p_low->Draw("L same");
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+
+  TH2D* h_pi_cut = MakePIDWindowHist(h2, "h2_pid_cut_pion", kmyPion, new_conv, pid_cut.pion_low, pid_cut.pion_high, pi_p_sep_threshold);
+  TH2D* h_k_cut = MakePIDWindowHist(h2, "h2_pid_cut_kaon", kmyKaon, new_conv, pid_cut.kaon_low, pid_cut.kaon_high, pi_p_sep_threshold);
+  // For proton, nsigma_high is ignored below separation-power threshold: there is no upper dE/dx limit.
+  TH2D* h_p_cut = MakePIDWindowHist(h2, "h2_pid_cut_proton", kmyProton, new_conv, pid_cut.proton_low, 0.0, pi_p_sep_threshold);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h_pi_cut, xmin, xmax, ymin, ymax);
+  DrawSeparationPowerRegions(new_conv, pi_p_sep_threshold, xmin, xmax, ymin, ymax, n_sep_scan);
+  g_pi_low->Draw("L same");
+  g_pi_high->Draw("L same");
   g_picut->Draw("L same");
-  
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
 
-  TLegend* leg = new TLegend(0.60, 0.60, 0.88, 0.88);
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h_k_cut, xmin, xmax, ymin, ymax);
+  g_k_low->Draw("L same");
+  g_k_high->Draw("L same");
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h_p_cut, xmin, xmax, ymin, ymax);
+  DrawSeparationPowerRegions(new_conv, pi_p_sep_threshold, xmin, xmax, ymin, ymax, n_sep_scan);
+  g_p_low->Draw("L same");
+  g_picut->Draw("L same");
+  SaveStepPDF(c, multipage_pdf.Data(), false, false);
+
+  c->Clear();
+  c->SetLogz();
+  DrawBasePIDPlot(h2, xmin, xmax, ymin, ymax);
+  DrawSeparationPowerRegions(new_conv, pi_p_sep_threshold, xmin, xmax, ymin, ymax, n_sep_scan);
+  f_p->Draw("same");
+  g->Draw("P same");
+  g_e_mean->Draw("L same");
+  g_pi_mean->Draw("L same");
+  g_k_mean->Draw("L same");
+  g_p_mean->Draw("L same");
+  g_pi_low_1sigma->Draw("L same");
+  g_pi_high_1sigma->Draw("L same");
+  g_p_low_1sigma->Draw("L same");
+  g_p_high_1sigma->Draw("L same");
+  g_pi_low->Draw("L same");
+  g_pi_high->Draw("L same");
+  g_k_low->Draw("L same");
+  g_k_high->Draw("L same");
+  g_p_low->Draw("L same");
+  g_picut->Draw("L same");
+  TLegend* leg = new TLegend(0.60, 0.58, 0.8, 0.88);
   leg->SetBorderSize(0);
-  leg->SetFillStyle(0);
+  leg->SetFillColorAlpha(kWhite,0.8);
   leg->SetTextSize(0.03);
   leg->AddEntry(g_e_mean, "#it{e}", "l");
   leg->AddEntry(g_pi_mean, "#pi", "l");
-  leg->AddEntry(g_pi_low_1sigma, "#pi #pm 1#sigma from PIDSigma", "l");
-
-  leg->AddEntry(g_k_mean,  "#it{K}", "l");
-
-  leg->AddEntry(g_p_mean,  "#it{p}", "l");
-  leg->AddEntry(g_p_low_1sigma, "p #pm 1#sigma from PIDSigma", "l");
-
-  leg->AddEntry(g_picut,   "#pi-#it{p} separation cut", "l");
-  if (sep_box_for_legend) {
-    leg->AddEntry(sep_box_for_legend, "#pi-#it{p} sep. power #geq 6", "f");
-  }
-
+  leg->AddEntry(g_pi_low_1sigma, "#pi/#it{p} #pm1#sigma", "l");
+  leg->AddEntry(g_k_mean, "#it{K}", "l");
+  leg->AddEntry(g_p_mean, "#it{p}", "l");
+  leg->AddEntry(g_picut, "#pi-#it{p} separation cut", "l");
   leg->Draw();
+  SaveStepPDF(c, multipage_pdf.Data(), false, true);
 
-  auto mg = new TMultiGraph("mg","mg");
+  auto mg = new TMultiGraph("mg", "mg");
   mg->Add(g_pi_mean);
   mg->Add(g_k_mean);
   mg->Add(g_p_mean);
@@ -565,16 +821,11 @@ void conversion_factor()
   mg->Add(g_k_low);
   mg->Add(g_k_high);
   mg->Add(g_p_low);
-  mg->Add(g_p_high);
 
-  TCanvas *c2 = new TCanvas("c2","c2");
+  TCanvas *c2 = new TCanvas("c2", "c2");
   mg->Draw("L");
-  
-    
 
-  
-
-  TFile* fout = TFile::Open("result/conversion-factor.root", "RECREATE");
+  TFile* fout = TFile::Open(Form("result/conversion-factor_%s.root", pid_cut.output_tag), "RECREATE");
   h2->Write("h2_dedx_merged");
   g->Write();
   f_init->Write();
@@ -589,11 +840,18 @@ void conversion_factor()
   g_k_high->Write();
   g_p_low->Write();
   g_p_high->Write();
+  g_e_low_1sigma->Write();
+  g_e_high_1sigma->Write();
   g_pi_low_1sigma->Write();
   g_pi_high_1sigma->Write();
+  g_k_low_1sigma->Write();
+  g_k_high_1sigma->Write();
   g_p_low_1sigma->Write();
   g_p_high_1sigma->Write();
   g_picut->Write();
+  h_pi_cut->Write();
+  h_k_cut->Write();
+  h_p_cut->Write();
   c->Write();
   c2->Write();
   fout->Close();
