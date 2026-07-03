@@ -318,6 +318,7 @@ void DrawBasePIDPlot(TH2D* h2, double xmin, double xmax, double ymin, double yma
   h2->GetYaxis()->SetRangeUser(ymin, ymax);
   h2->GetXaxis()->SetTitle("#it{p/z} [GeV/#it{c}]");
   h2->GetYaxis()->SetTitle("TPC #LT#it{dE/dx}#GT (a.u.)");
+  h2->SetMaximum(10000);
   h2->Draw("colz");
 }
 
@@ -736,6 +737,7 @@ void conversion_factor()
   g_pi_mean->Draw("L same");
   g_k_mean->Draw("L same");
   g_p_mean->Draw("L same");
+  /*
   g_e_low_1sigma->Draw("L same");
   g_e_high_1sigma->Draw("L same");
   g_pi_low_1sigma->Draw("L same");
@@ -744,15 +746,16 @@ void conversion_factor()
   g_k_high_1sigma->Draw("L same");
   g_p_low_1sigma->Draw("L same");
   g_p_high_1sigma->Draw("L same");
+  */
   TLegend* leg_step1 = new TLegend(0.58, 0.58, 0.8, 0.88);
   leg_step1->SetBorderSize(0);
   leg_step1->SetFillColorAlpha(kWhite,0.8);
   leg_step1->SetTextSize(0.03);
-  leg_step1->AddEntry(g_e_mean, "#it{e} mean", "l");
-  leg_step1->AddEntry(g_pi_mean, "#pi mean", "l");
-  leg_step1->AddEntry(g_k_mean, "#it{K} mean", "l");
-  leg_step1->AddEntry(g_p_mean, "#it{p} mean", "l");
-  leg_step1->AddEntry(g_pi_low_1sigma, "#pm1#sigma", "l");
+  leg_step1->AddEntry(g_e_mean, "#it{e}", "l");
+  leg_step1->AddEntry(g_pi_mean, "#pi", "l");
+  leg_step1->AddEntry(g_k_mean, "#it{K}", "l");
+  leg_step1->AddEntry(g_p_mean, "#it{p}", "l");
+  //leg_step1->AddEntry(g_pi_low_1sigma, "#pm1#sigma", "l");
   leg_step1->Draw();
   SaveStepCanvas(c, multipage_pdf.Data(), multipage_logy_pdf.Data(), true, false, step_canvases, step_id);
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-runs=(2450 2451 2452 2453 2454 2456 2457)
+runs=(2462 2463 2465 2466)
 
 for run in "${runs[@]}"; do
     tmux new-window -t gain -n "run${run}"
