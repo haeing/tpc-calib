@@ -39,8 +39,15 @@ bool IsFrameHighEdge(int layer, int row)
   return false;
 }
 
-void padgain_fillpad(){
-  TFile *file = new TFile("result/260629/htofcalib-padgain-combine-260629.root");
+void padgain_fillpad(const char* result_subdir = "260701"){
+
+  const string result_dir = Form("result/%s", result_subdir);
+  gSystem->mkdir(result_dir.c_str(), kTRUE);
+
+  
+  TFile *file = new TFile(Form("%s/padgain-combine.root",result_dir.c_str()));
+  const string outroot = Form("%s/padgain-fillpad.root",result_dir.c_str());
+  
   TPC_gain = (TH2Poly*)file->Get("TPC_gain");
 
   TH2Poly *TPC_gain_all = new TH2Poly("TPC_gain_all","TPC_gain_all;Z [mm];X [mm]",MinZ,MaxZ,MinX,MaxX);
@@ -186,7 +193,7 @@ void padgain_fillpad(){
   
 
 
-  TFile *f = new TFile("result/260629/padgain-fillpad-260629.root","RECREATE");
+  TFile* f = new TFile(outroot.c_str(), "RECREATE");
   TPC_gain->Write();
   TPC_gain_all->Write();
   f->Close();

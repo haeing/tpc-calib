@@ -1,7 +1,8 @@
 #include <iostream>
 #include <vector>
 
-const std::vector<int> run_numbers = {2447, 2450,2451,2452,2453,2454,2456,2457,2458,2459};
+//const std::vector<int> run_numbers = {2447, 2450,2451,2452,2453,2454,2456,2457,2458,2459};
+const std::vector<int> run_numbers = {2447, 2449, 2450};
 namespace  {
 
 const double me = 0.5109989461; // MeV/c2
@@ -408,14 +409,14 @@ void SaveStepCanvas(
 
 TH2D* LoadAndMergePIDHist(
     const std::vector<int>& run_numbers,
-    const char* input_dir,
+    const string& input_dir,
     const char* file_format,
     const char* histname)
 {
   TH2D* h_merged = nullptr;
 
   for (int run : run_numbers) {
-    TString filename = Form(file_format, input_dir, run);
+    TString filename = Form(file_format, input_dir.c_str(), run);
     TFile* fin = TFile::Open(filename, "READ");
     if (!fin || fin->IsZombie()) {
       std::cerr << "Cannot open " << filename << std::endl;
@@ -513,7 +514,7 @@ TH2D* MakePIDWindowHist(
   
 }
 
-void conversion_factor()
+void conversion_factor(const char* result_subdir = "physics-735-minlayer15")
 {
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -521,7 +522,7 @@ void conversion_factor()
   gStyle->SetOptTitle(0);
 
   
-  const char* input_dir = "~/data/JPARC2025Nov_root/physics-735";
+  const string input_dir = Form("~/data/JPARC2025Nov_root/%s",result_subdir);
   const char* input_file_format = "%s/run%05d_DstTPCHelixTracking.root";
   const char* input_histname = "PID_dEdx_vs_SignedMom";
 
@@ -652,9 +653,11 @@ void conversion_factor()
 
   const PIDPreset pid_preset = kPIDPresetE72;
   const PIDCutConfig pid_cut = GetPIDCutConfig(pid_preset);
+
   const double new_conv = pid_cut.use_fit_conversion
     ? f_p->GetParameter(0)
     : pid_cut.fixed_conversion;
+
 
   std::cout << "PID cut preset = " << pid_cut.label
             << ", conversion factor = " << new_conv
@@ -724,8 +727,8 @@ void conversion_factor()
   g->SetMarkerColor(kBlack);
   g->SetLineColor(kBlack);
 
-  TString multipage_pdf = Form("result/conversion-factor_%s_ana.pdf", pid_cut.output_tag);
-  TString multipage_logy_pdf = Form("result/conversion-factor_%s_logy_ana.pdf", pid_cut.output_tag);
+  TString multipage_pdf = Form("result/%s/conversion-factor_%s_ana.pdf", result_subdir,pid_cut.output_tag);
+  TString multipage_logy_pdf = Form("result/%s/conversion-factor_%s_logy_ana.pdf", result_subdir,pid_cut.output_tag);
   std::vector<TCanvas*> step_canvases;
   int step_id = 1;
 

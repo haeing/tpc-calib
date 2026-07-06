@@ -55,7 +55,7 @@ geometry: $(EXPORT_BIN)
 	$(EXPORT_BIN) -o $(WEB_DIR)/display.root
 
 serve:
-	python3 app/tpc_event_server.py --host 127.0.0.1 --port 8000
+	python3 app/tpc_event_server.py --host 127.0.0.1 --port 8080
 
 clean:
 	rm -rf $(BUILD_DIR) $(LIB_ANALYZER)

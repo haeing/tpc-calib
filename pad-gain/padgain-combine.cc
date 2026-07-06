@@ -1,4 +1,5 @@
 #include "../TPCPadHelper.hh"
+#include "../TPCEventDisplayHelper.hh"
 
 const int runnumber[] = {2447, 2449, 2450, 2451, 2452, 2453, 2454, 2456, 2457, 2458, 2459, 2460, 2462, 2463, 2465,2466, 2468};
 const int nrun = sizeof(runnumber) / sizeof(runnumber[0]);
@@ -11,11 +12,11 @@ struct FitResult {
 bool IsGoodLandauFit(TH1D* h, TF1* f)
 {
   if (!h || !f) return false;
-  if (h->GetEntries() < 50) return false;
+  if (h->GetEntries() < 30) return false;
   if (f->GetNDF() <= 0) return false;
 
   const double mpv = f->GetParameter(1);
-  if (mpv < 50. || mpv > 300.) return false;
+  if (mpv < 50. || mpv > 350.) return false;
 
   return true;
 }
@@ -45,38 +46,6 @@ FitResult FitLandauWithRetry(TH1D* hraw)
   return {};
 }
 
-void AddTPCPadBins(TH2Poly* h)
-{
-  Double_t X[5];
-  Double_t Y[5];
-
-  for (Int_t layer = 0; layer < NumOfLayersTPC; ++layer) {
-    const Double_t pLength = tpc::padParameter[layer][5];
-    const Double_t st = 180. - (360. / tpc::padParameter[layer][3])
-                              * tpc::padParameter[layer][1] / 2.;
-    const Double_t sTheta = (-1. + st / 180.) * TMath::Pi();
-    const Double_t dTheta = (360. / tpc::padParameter[layer][3]) / 180. * TMath::Pi();
-    const Double_t cRad = tpc::padParameter[layer][2];
-    const Int_t nPad = tpc::padParameter[layer][1];
-
-    for (Int_t row = 0; row < nPad; ++row) {
-      X[1] = (cRad + pLength / 2.) * TMath::Cos(row * dTheta + sTheta);
-      X[2] = (cRad + pLength / 2.) * TMath::Cos((row + 1) * dTheta + sTheta);
-      X[3] = (cRad - pLength / 2.) * TMath::Cos((row + 1) * dTheta + sTheta);
-      X[4] = (cRad - pLength / 2.) * TMath::Cos(row * dTheta + sTheta);
-      X[0] = X[4];
-
-      Y[1] = (cRad + pLength / 2.) * TMath::Sin(row * dTheta + sTheta);
-      Y[2] = (cRad + pLength / 2.) * TMath::Sin((row + 1) * dTheta + sTheta);
-      Y[3] = (cRad - pLength / 2.) * TMath::Sin((row + 1) * dTheta + sTheta);
-      Y[4] = (cRad - pLength / 2.) * TMath::Sin(row * dTheta + sTheta);
-      Y[0] = Y[4];
-
-      for (Int_t i = 0; i < 5; ++i) X[i] += ZTarget;
-      h->AddBin(5, X, Y);
-    }
-  }
-}
 
 void padgain_combine(const char* result_subdir = "260701")
 {
@@ -90,10 +59,9 @@ void padgain_combine(const char* result_subdir = "260701")
   const string outroot = Form("%s/padgain-combine.root", result_dir.c_str());
 
   TH1D* hist_de[NumOfPadTPC] = {nullptr};
-  auto TPC_count = new TH2Poly("TPC_count", "TPC_count;Z;X", MinZ, MaxZ, MinX, MaxX);
-  auto TPC_gain = new TH2Poly("TPC_gain", "TPC_gain;Z;X", MinZ, MaxZ, MinX, MaxX);
-  AddTPCPadBins(TPC_count);
-  AddTPCPadBins(TPC_gain);
+  auto TPC_count = tpcdisp::MakeTPCPadMap("TPC_count", "TPC_count");
+  auto TPC_gain = tpcdisp::MakeTPCPadMap("TPC_gain", "TPC_gain");
+  
 
   auto graph_gain = new TGraph();
   auto graph_chi = new TGraph();
@@ -194,6 +162,8 @@ void padgain_combine(const char* result_subdir = "260701")
   TPC_gain->Write();
   c1->Print(outpdf.c_str());
 
+    
+
   c1->Clear();
   auto mg = new TMultiGraph();
   graph_gain->SetMarkerStyle(4);
@@ -204,6 +174,8 @@ void padgain_combine(const char* result_subdir = "260701")
   mg->Add(graph_gain);
   mg->Add(graph_chi);
   mg->Add(graph_sigma);
+  mg->SetMinimum(0);
+  mg->SetMaximum(400);
   mg->Draw("AP");
   graph_gain->Write();
   graph_chi->Write();
@@ -212,6 +184,7 @@ void padgain_combine(const char* result_subdir = "260701")
 
   c1->Clear();
   gPad->SetLogz();
+  TPC_count->SetMinimum(1);
   TPC_count->Draw("colz");
   TPC_count->Write();
   c1->Print((outpdf + ")").c_str());

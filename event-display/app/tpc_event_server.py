@@ -136,7 +136,7 @@ class EventDisplayHandler(SimpleHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description="TPC JSROOT event-display server")
     parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", default=8000, type=int)
+    parser.add_argument("--port", default=8080, type=int)
     parser.add_argument("--project-dir", default=".")
     parser.add_argument("--web-dir", default="web")
     parser.add_argument("--converter", default="bin/tpc_event_export")
