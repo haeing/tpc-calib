@@ -327,8 +327,8 @@ void pid_plot_combine(const char* result_subdir = "physics-735-minlayer15",
   center_line->SetLineWidth(1);
   center_line->Draw("same");
 
-  DrawGraph(g_e_neg);
-  DrawGraph(g_e_pos);
+  //DrawGraph(g_e_neg);
+  //DrawGraph(g_e_pos);
   DrawGraph(g_pi_neg);
   DrawGraph(g_pi_pos);
   DrawGraph(g_k_neg);
@@ -340,7 +340,7 @@ void pid_plot_combine(const char* result_subdir = "physics-735-minlayer15",
   leg->SetBorderSize(0);
   leg->SetFillColorAlpha(kWhite, 0.75);
   leg->SetTextSize(0.030);
-  leg->AddEntry(g_e_pos, "#it{e}", "l");
+  //leg->AddEntry(g_e_pos, "#it{e}", "l");
   leg->AddEntry(g_pi_pos, "#pi", "l");
   leg->AddEntry(g_k_pos, "#it{K}", "l");
   leg->AddEntry(g_p_pos, "#it{p}", "l");
