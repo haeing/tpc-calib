@@ -1,6 +1,6 @@
 const int NCobo = 8;
-const int runnumber = 3772;
-const bool param_update = true;
+const int runnumber = 2447;
+const bool param_update = false;
 Double_t ClockShiftFunc(Double_t *x, Double_t *par)
 {
   return par[0] * TMath::Freq((x[0] - par[1]) / par[2])+par[3];
@@ -96,14 +96,18 @@ void UpdateCoboParameter(const char* infile,
 }
 
 
-void cobo_clock(){
+void cobo_clock(const char* result_subdir = "tpchit-test"){
   gROOT->SetBatch(kTRUE);
-  TFile *file = TFile::Open(Form("~/data/JPARC2025Nov_root/cobo-phase/run0%d_DstTPCHitBcOutTracking.root",runnumber),"read");
+  const string result_dir = Form("result/%s", result_subdir);
+  gSystem->mkdir(result_dir.c_str(), kTRUE);
+
+  
+  TFile *file = TFile::Open(Form("~/data/JPARC2025Nov_root/%s/run0%d_DstTPCHitBcOutTracking.root",result_subdir,runnumber),"read");
   TString histFmt = "TPCHit_ResY_vs_ClockTime_CoBo%d_RawClock";
   TString histFmt_cor = "TPCHit_ResY_vs_ClockTime_CoBo%d";
 
-  string outpdf = Form("result/cobo-clock-run0%d.pdf", runnumber);
-  TFile *fout = new TFile(Form("result/cobo-clock-run0%d.root",runnumber),"RECREATE");
+  string outpdf = Form("%s/cobo-clock-run0%d.pdf", result_dir.c_str(),runnumber);
+  TFile *fout = new TFile(Form("%s/cobo-clock-run0%d.root",result_dir.c_str(),runnumber),"RECREATE");
   
   TCanvas *c1 = new TCanvas("c1","c1");
   

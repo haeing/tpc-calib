@@ -3,8 +3,8 @@ const int runnumber = 2447;
 void residual()
 {
   gROOT->SetBatch(kTRUE);
-  TFile *file = TFile::Open(Form("~/data/JPARC2025Nov_root/cobo-phase/run0%d_DstTPCHelixTracking_y0.root",runnumber),"read");
-  string outpdf = Form("result/residual-run0%d.pdf", runnumber);
+  TFile *file = TFile::Open(Form("~/data/JPARC2025Nov_root/cobo-phase/run0%d_DstTPCHelixTracking_yoffset1.root",runnumber),"read");
+  string outpdf = Form("result/residual-run0%d_yoffset1.pdf", runnumber);
   TCanvas *c1 = new TCanvas("c1","c1");
   
   gStyle->SetOptStat(0);
