@@ -1,6 +1,31 @@
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "TCanvas.h"
+#include "TDatime.h"
+#include "TFile.h"
+#include "TF1.h"
+#include "TH1D.h"
+#include "TH2D.h"
+#include "TMath.h"
+#include "TPaveText.h"
+#include "TROOT.h"
+#include "TString.h"
+#include "TStyle.h"
+#include "TSystem.h"
+
+using namespace std;
+
 const int NCobo = 8;
-const int runnumber = 2447;
+const int runnumber = 2599;
 const bool param_update = false;
+const bool auto_p1 = true;
+
 Double_t ClockShiftFunc(Double_t *x, Double_t *par)
 {
   return par[0] * TMath::Freq((x[0] - par[1]) / par[2])+par[3];
@@ -35,6 +60,132 @@ TH2D* CorrectHistY(TH2D *h, TF1 *fshift, const char *name)
   }
 
   return hcorr;
+}
+
+struct ClockJumpCandidate {
+  double x;
+  double dy;
+  double score;
+};
+
+std::vector<ClockJumpCandidate> FindClockJumpCandidates(TH2D *h, double expectedJump, int icobo, TH1D *htrace)
+{
+  const int nx = h->GetNbinsX();
+  const int ny = h->GetNbinsY();
+  const int xGroup = 25;
+  const int peakHalfWindow = 2;
+  const int maxCandidates = 3;
+  const double xSearchMin = -38.0;
+  const double xSearchMax = 38.0;
+  const double targetJump = (TMath::Abs(expectedJump) > 1.0) ? TMath::Abs(expectedJump) : 3.0;
+  const double minJump = 1.5;
+  const double maxJump = 6.0;
+
+  struct TracePoint {
+    double x;
+    double y;
+    double weight;
+  };
+
+  std::vector<TracePoint> trace;
+
+  for(int ix0 = 1; ix0 <= nx; ix0 += xGroup){
+    int ix1 = TMath::Min(nx, ix0 + xGroup - 1);
+    double xsum = 0.0;
+    std::vector<double> yproj(ny + 1, 0.0);
+
+    for(int ix = ix0; ix <= ix1; ix++){
+      xsum += h->GetXaxis()->GetBinCenter(ix);
+
+      for(int iy = 1; iy <= ny; iy++){
+        double cont = h->GetBinContent(ix, iy);
+        if(cont <= 0) continue;
+        yproj[iy] += cont;
+      }
+    }
+
+    double xcenter = xsum / (ix1 - ix0 + 1);
+    if(xcenter < xSearchMin || xcenter > xSearchMax) continue;
+
+    int maxbin = 0;
+    double maxCont = 0.0;
+    for(int iy = 1; iy <= ny; iy++){
+      if(yproj[iy] > maxCont){
+        maxCont = yproj[iy];
+        maxbin = iy;
+      }
+    }
+
+    if(maxbin <= 0 || maxCont <= 0.0) continue;
+
+    double sumw = 0.0;
+    double sumwy = 0.0;
+    for(int iy = TMath::Max(1, maxbin - peakHalfWindow);
+        iy <= TMath::Min(ny, maxbin + peakHalfWindow); iy++){
+      double cont = yproj[iy];
+      if(cont <= 0) continue;
+
+      sumw += cont;
+      sumwy += cont * h->GetYaxis()->GetBinCenter(iy);
+    }
+
+    if(sumw <= 0.0) continue;
+
+    double ycenter = sumwy / sumw;
+    trace.push_back({xcenter, ycenter, sumw});
+    htrace->SetBinContent(htrace->GetXaxis()->FindBin(xcenter), ycenter);
+  }
+
+  std::vector<ClockJumpCandidate> candidates;
+
+  for(size_t i = 1; i < trace.size(); i++){
+    double dy = trace[i].y - trace[i - 1].y;
+    double absDy = TMath::Abs(dy);
+    if(absDy < minJump || absDy > maxJump) continue;
+
+    double score = absDy / (1.0 + TMath::Abs(absDy - targetJump));
+    candidates.push_back({0.5 * (trace[i].x + trace[i - 1].x), dy, score});
+  }
+
+  auto preferNegativeP1 = [](int cobo){
+    return cobo == 0 || cobo == 1 || cobo == 2 ||
+           cobo == 5 || cobo == 6 || cobo == 7;
+  };
+
+  if(preferNegativeP1(icobo)){
+    std::vector<ClockJumpCandidate> preferred;
+    for(const auto &candidate : candidates){
+      if(candidate.x > -20.0 && candidate.x < -10.0){
+        preferred.push_back(candidate);
+      }
+    }
+
+    if(!preferred.empty()){
+      std::sort(preferred.begin(), preferred.end(),
+                [](const ClockJumpCandidate &a, const ClockJumpCandidate &b){
+                  double da = TMath::Abs(a.x + 14.5);
+                  double db = TMath::Abs(b.x + 14.5);
+                  if(TMath::Abs(da - db) > 1.e-6) return da < db;
+                  return a.score > b.score;
+                });
+
+      if((int)preferred.size() > maxCandidates){
+        preferred.resize(maxCandidates);
+      }
+      return preferred;
+    }
+  }
+
+  std::sort(candidates.begin(), candidates.end(),
+            [](const ClockJumpCandidate &a, const ClockJumpCandidate &b){
+              return a.score > b.score;
+            });
+
+  if((int)candidates.size() > maxCandidates){
+    candidates.resize(maxCandidates);
+  }
+
+  return candidates;
 }
 
 void UpdateCoboParameter(const char* infile,
@@ -130,36 +281,6 @@ void cobo_clock(const char* result_subdir = "tpchit-test"){
   TH2D *h2[NCobo];
   TH2D *h2_cor[NCobo];
   double p1[NCobo]={0.};
-  if(runnumber == 2448 || runnumber == 2447){
-    p1[0] = 19.5;
-    p1[1] = 18.8;
-    p1[2] = 18.5;
-    p1[3] = -30.7;
-    p1[4] = -11.8;
-    p1[5] = 18.0;
-    p1[6] = 17.0;
-    p1[7] = 18.6;
-  }
-  else if(runnumber == 2570){
-    p1[0] = 11.;
-    p1[1] = 19.5;
-    p1[2] = 19.2;
-    p1[3] = -19.5;
-    p1[4] = -20.2;
-    p1[5] = 19.5;
-    p1[6] = 18.9;
-    p1[7] = 19.3;
-  }
-  else if(runnumber == 3772){
-    p1[0] = 23.;
-    p1[1] = 21.4;
-    p1[2] = 21.2;
-    p1[3] = 22.9;
-    p1[4] = 20.2;
-    p1[5] = 21.0;
-    p1[6] = 20.5;
-    p1[7] = 21.3;
-  }
   double p0_fit[NCobo];
   double p1_fit[NCobo];
   for (int icobo = 0; icobo < NCobo; ++icobo) {
@@ -198,10 +319,40 @@ void cobo_clock(const char* result_subdir = "tpchit-test"){
 
     double p2 = 0.01;
     double p3 = yleft;
-    fshift[icobo]->SetParameters(p0,p1[icobo],p2,p3);
+    TH1D *hmean = new TH1D(Form("hmean_cobo%d",icobo),
+                           Form("CoBo%d mean residual vs raw clock;Raw clock;Mean residual Y",icobo),
+                           h2[icobo]->GetNbinsX(),
+                           h2[icobo]->GetXaxis()->GetXmin(),
+                           h2[icobo]->GetXaxis()->GetXmax());
+
+    double p1_init = p1[icobo];
+    double found_jump = 0.0;
+    std::vector<ClockJumpCandidate> candidates;
+    if(auto_p1){
+      candidates = FindClockJumpCandidates(h2[icobo], p0, icobo, hmean);
+    }
+
+    if(!candidates.empty()){
+      p1_init = candidates[0].x;
+      found_jump = candidates[0].dy;
+      cout << "auto p1 cobo " << icobo << " = " << p1_init
+           << "  grouped jump = " << found_jump << "  expected = " << p0 << endl;
+      for(size_t icand = 0; icand < candidates.size(); icand++){
+        cout << "  candidate " << icand
+             << " p1 = " << candidates[icand].x
+             << " jump = " << candidates[icand].dy
+             << " score = " << candidates[icand].score << endl;
+      }
+    }
+    else{
+      cout << "auto p1 failed cobo " << icobo
+           << ", use fallback p1 = " << p1_init << endl;
+    }
+
+    fshift[icobo]->SetParameters(p0,p1_init,p2,p3);
     
     fshift[icobo]->SetParLimits(0,p0-0.1,p0+0.1);
-    fshift[icobo]->SetParLimits(1,p1[icobo]-0.5,p1[icobo]+0.5);
+    fshift[icobo]->SetParLimits(1,p1_init-2.0,p1_init+2.0);
     //fshift[icobo]->SetParLimits(2,0,p2+0.02);
     //fshift[icobo]->FixParameter(0,p0);
     fshift[icobo]->FixParameter(2,p2);
@@ -212,6 +363,7 @@ void cobo_clock(const char* result_subdir = "tpchit-test"){
     h2[icobo]->SetTitle(Form("CoBo%d",icobo));
     h2[icobo]->Draw("colz");
     
+    hmean->Write();
     h2[icobo]->Write();
     fshift[icobo]->Write();
     p0_fit[icobo] = fshift[icobo]->GetParameter(0) * -1 / 0.055;
@@ -260,8 +412,8 @@ void cobo_clock(const char* result_subdir = "tpchit-test"){
   fout->Close();
 
   if(param_update){
-    UpdateCoboParameter("param_history/TPCParam_e72_20260616",
-			Form("param_history/TPCParam_e72_run0%d",runnumber),
+    UpdateCoboParameter("param_history/TPCParam_e72_run02447_lasthit_2",
+			Form("param_history/TPCParam_e72_run0%d_lasthit",runnumber),
 			p0_fit, p1_fit, NCobo);
   }
 }

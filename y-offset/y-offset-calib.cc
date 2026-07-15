@@ -9,21 +9,23 @@
 
 using namespace std;
 
-const int runnumber = 2447;
+const int runnumber = 2594;
 
-void y_offset_calib(const char* result_subdir = "cobo-phase")
+void y_offset_calib(const char* result_subdir = "tpchit-test")
 {
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
 
   const string result_dir = Form("result/%s", result_subdir);
+  const string param_dir = Form("param_history/%s", result_subdir);
   gSystem->mkdir(result_dir.c_str(), kTRUE);
+  gSystem->mkdir(param_dir.c_str(), kTRUE);
 
-  string outpdf = Form("result/%s/y-offset-calib-run0%d.pdf", result_subdir, runnumber);
-  string outroot = Form("result/%s/y-offset-calib-run0%d.root", result_subdir, runnumber);
-  string param_in = Form("param_history/TPCParam_e72_run0%d_yoffset", runnumber);
-  string param_out = Form("param_history/TPCParam_e72_run0%d_yoffset1", runnumber);
-  string summary_out = Form("result/%s/y-offset-fit-run0%d.txt", result_subdir, runnumber);
+  string outpdf = Form("result/%s/y-offset-calib-run0%d_0.pdf", result_subdir, runnumber);
+  string outroot = Form("result/%s/y-offset-calib-run0%d_0.root", result_subdir, runnumber);
+  string param_in = Form("param_history/%s/TPCParam_e72_run0%d_lasthit_0",result_subdir, runnumber);
+  string param_out = Form("param_history/%s/TPCParam_e72_run0%d_lasthit_1",result_subdir, runnumber);
+  string summary_out = Form("result/%s/y-offset-fit-run0%d_2.txt", result_subdir, runnumber);
 
   vector<double> res_offset(NumOfLayersTPC, 0.);
   vector<double> res_slope(NumOfLayersTPC, 0.);
@@ -47,7 +49,7 @@ void y_offset_calib(const char* result_subdir = "cobo-phase")
   title->Draw();
   c1->Print((outpdf + "(").c_str());
 
-  TFile* file = new TFile(Form("/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/%s/run0%d_DstTPCHelixTracking_yoffset.root",
+  TFile* file = new TFile(Form("/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/%s/run0%d_DstTPCHelixTracking.root",
                                result_subdir, runnumber));
   if(!file || file->IsZombie()){
     Error("y_offset_calib", "cannot open input ROOT file");
