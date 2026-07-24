@@ -237,11 +237,9 @@
   <section class="panel" id="layers">
     <label><input id="showGeometry" type="checkbox" checked>3D frame</label>
     <label><input id="showPadPlane" type="checkbox" checked>2D pad plane</label>
-    <label><input id="showRawHits" type="checkbox" checked>Raw hits</label>
-    <label><input id="showClusters" type="checkbox" checked>Clusters</label>
-    <label><input id="showTrackHits" type="checkbox" checked>Track hits</label>
+    <label><input id="showRawHits" type="checkbox">Raw hits</label>
+    <label><input id="showClusters" type="checkbox">Clusters</label>
     <label><input id="showTrackLines" type="checkbox" checked>Track lines</label>
-    <label><input id="showCalPos" type="checkbox">Cal positions</label>
     <label><input id="showTrackClusters" type="checkbox" checked>Track clusters</label>
     <label><input id="showVertices" type="checkbox" checked>Vertices</label>
   </section>
@@ -269,9 +267,7 @@
       padPlane: document.getElementById('showPadPlane'),
       rawHits: document.getElementById('showRawHits'),
       clusters: document.getElementById('showClusters'),
-      trackHits: document.getElementById('showTrackHits'),
       trackLines: document.getElementById('showTrackLines'),
-      calPos: document.getElementById('showCalPos'),
       trackClusters: document.getElementById('showTrackClusters'),
       vertices: document.getElementById('showVertices'),
     };
@@ -542,17 +538,9 @@
           continue;
         }
         const style = { color: config.color, marker: config.marker, markerSize: 0.65, lineWidth: 2 };
-        if (layerControls.trackHits.checked) {
-          has3d = await drawIfPresent(file, 'view3d', `${eventName}/track_${i}_hits3d`, has3d ? 'same p' : 'p', style) || has3d;
-          has2d = await drawIfPresent(file, 'view2d', `${eventName}/track_${i}_hits2d`, has2d ? 'same p' : 'p', style) || has2d;
-        }
         if (layerControls.trackLines.checked) {
           has3d = await drawIfPresent(file, 'view3d', `${eventName}/track_${i}_line3d`, has3d ? 'same' : '', style) || has3d;
           has2d = await drawIfPresent(file, 'view2d', `${eventName}/track_${i}_line2d`, has2d ? 'same l' : 'al', style) || has2d;
-        }
-        if (layerControls.calPos.checked) {
-          has3d = await drawIfPresent(file, 'view3d', `${eventName}/track_${i}_cal3d`, has3d ? 'same p' : 'p', { ...style, marker: 24 }) || has3d;
-          has2d = await drawIfPresent(file, 'view2d', `${eventName}/track_${i}_cal2d`, has2d ? 'same p' : 'p', { ...style, marker: 24 }) || has2d;
         }
         if (layerControls.trackClusters.checked) {
           has3d = await drawIfPresent(file, 'view3d', `${eventName}/track_${i}_clusters3d`, has3d ? 'same p' : 'p', { ...style, marker: 22 }) || has3d;
