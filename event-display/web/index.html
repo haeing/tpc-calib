@@ -251,7 +251,11 @@
   </main>
 
   <script type="module">
-    import { openFile, draw, redraw } from 'https://root.cern/js/latest/modules/main.mjs';
+    import {
+      openFile,
+      draw,
+      getColor,
+    } from 'https://root.cern/js/latest/modules/main.mjs';
 
     const sourceInput = document.getElementById('source');
     const treeInput = document.getElementById('tree');
@@ -273,8 +277,16 @@
     };
     const rootColors = [633, 601, 418, 617, 807, 434, 881, 922];
     const markerStyles = [20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34];
+    const default3DView = {
+      // Put negative Z (the target side) on screen-left, then add a small
+      // horizontal turn and a slightly elevated viewpoint.
+      position: { x: -1.65, y: 0.55, z: 0.22 },
+      up: { x: 0, y: 1, z: 0 },
+    };
     let lastDisplayFile = 'display.root';
     let lastMetadata = { tracks: 0 };
+    let view3dFramePainter = null;
+    let view3dGeometryPainter = null;
     const trackConfig = [];
 
     async function drawIfPresent(file, target, objectPath, options, style = null) {
@@ -284,6 +296,12 @@
         const painter = await draw(target, obj, options);
         if (target === 'view2d') {
           apply2DMargins(painter);
+        } else if (target === 'view3d') {
+          view3dFramePainter = painter?.getFramePainter?.() || view3dFramePainter;
+          const mainPainter = painter?.getMainPainter?.();
+          if (mainPainter?.getCamera?.() && mainPainter?.render3D) {
+            view3dGeometryPainter = mainPainter;
+          }
         }
         return true;
       } catch (err) {
@@ -304,42 +322,122 @@
       pad.fTopMargin = 0.04;
     }
 
-    function rootColorCss(color) {
-      const colors = {
-        1: '#1f2933',
-        2: '#d62728',
-        3: '#2ca02c',
-        4: '#1f77b4',
-        5: '#b58900',
-        6: '#9467bd',
-        7: '#17becf',
-        8: '#1b7f3a',
-        9: '#7c3aed',
-        10: '#ffffff',
-        11: '#6b7280',
-        12: '#9ca3af',
-        13: '#c7cdd4',
-        14: '#e5e7eb',
-        15: '#f3f4f6',
-        600: '#1f77b4',
-        633: '#d62728',
-        601: '#1f77b4',
-        602: '#4a90d9',
-        616: '#9467bd',
-        418: '#2ca02c',
-        416: '#1b7f3a',
-        617: '#9467bd',
-        632: '#d62728',
-        807: '#ff7f0e',
-        800: '#d97706',
-        434: '#17becf',
-        432: '#0891b2',
-        881: '#8c564b',
-        880: '#7c3aed',
-        922: '#6b7280',
-        920: '#4b5563',
+    function captureCurrent3DView() {
+      const geometryPainter = view3dGeometryPainter;
+      const camera = geometryPainter?.getCamera?.();
+      if (!camera) {
+        return null;
+      }
+      const controls = geometryPainter.getControls?.();
+      const target = controls?.target;
+      return {
+        position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+        up: { x: camera.up.x, y: camera.up.y, z: camera.up.z },
+        target: target
+          ? { x: target.x, y: target.y, z: target.z }
+          : { x: 0, y: 0, z: 0 },
       };
-      return colors[color] || '#1f2933';
+    }
+
+    function restore3DView(view) {
+      const geometryPainter = view3dGeometryPainter;
+      const camera = geometryPainter?.getCamera?.();
+      if (!camera || !view) {
+        return false;
+      }
+
+      camera.position.set(view.position.x, view.position.y, view.position.z);
+      camera.up.set(view.up.x, view.up.y, view.up.z);
+      camera.lookAt(view.target.x, view.target.y, view.target.z);
+      camera.updateProjectionMatrix();
+
+      const controls = geometryPainter.getControls?.();
+      if (controls) {
+        controls.target.set(view.target.x, view.target.y, view.target.z);
+        controls.target0.copy(controls.target);
+        controls.position0.copy(camera.position);
+        controls.update();
+      }
+
+      geometryPainter.render3D(0);
+      return true;
+    }
+
+    function applyDefault3DView() {
+      const geometryPainter = view3dGeometryPainter;
+      const geometryCamera = geometryPainter?.getCamera?.();
+      if (geometryCamera) {
+        const box = geometryPainter.getGeomBoundingBox();
+        const center = {
+          x: (box.min.x + box.max.x) / 2,
+          y: (box.min.y + box.max.y) / 2,
+          z: (box.min.z + box.max.z) / 2,
+        };
+        const size = geometryPainter.getOverallSize(true);
+
+        geometryCamera.position.set(
+          center.x + default3DView.position.x * size,
+          center.y + default3DView.position.y * size,
+          center.z + default3DView.position.z * size
+        );
+        geometryCamera.up.set(default3DView.up.x, default3DView.up.y, default3DView.up.z);
+        geometryCamera.lookAt(center.x, center.y, center.z);
+        geometryCamera.updateProjectionMatrix();
+
+        const controls = geometryPainter.getControls?.();
+        if (controls) {
+          controls.target.set(center.x, center.y, center.z);
+          controls.target0.copy(controls.target);
+          controls.position0.copy(geometryCamera.position);
+          controls.update();
+        }
+
+        geometryPainter.render3D(0);
+        return true;
+      }
+
+      const framePainter = view3dFramePainter;
+      const camera = framePainter?.camera;
+      const lookAt = framePainter?.lookat;
+      if (!camera || !lookAt) {
+        console.warn('3D camera preset was not applied: active frame camera was not found');
+        return false;
+      }
+
+      const maxX = 3 * Math.max(framePainter.size_x3d, framePainter.size_z3d);
+      const maxY = 3 * Math.max(framePainter.size_y3d, framePainter.size_z3d);
+
+      camera.position.set(
+        lookAt.x + default3DView.position.x * maxX,
+        lookAt.y + default3DView.position.y * maxY,
+        lookAt.z + default3DView.position.z * Math.max(maxX, maxY)
+      );
+      camera.up.set(default3DView.up.x, default3DView.up.y, default3DView.up.z);
+      camera.lookAt(lookAt);
+      camera.updateProjectionMatrix();
+
+      if (framePainter.control) {
+        framePainter.control.target.copy(lookAt);
+        framePainter.control.target0.copy(lookAt);
+        framePainter.control.position0.copy(camera.position);
+        framePainter.control.update();
+      }
+
+      const padPainter = framePainter?.getPadPainter?.();
+      const pad = padPainter?.getRootPad?.(true) || padPainter?.pad;
+      if (pad) {
+        // Keep JSROOT's pad state aligned closely enough that a later redraw
+        // does not restore its original camera before this preset is applied.
+        pad.fTheta = 35;
+        pad.fPhi = 270;
+      }
+
+      framePainter.render3D?.(0);
+      return true;
+    }
+
+    function rootColorCss(color) {
+      return getColor(color) || '#1f2933';
     }
 
     async function drawWireframe(file, eventHas3d) {
@@ -505,12 +603,17 @@
       return lastDisplayFile;
     }
 
-    async function drawEntry(rootPath, metadata) {
+    async function drawEntry(rootPath, metadata, reset3DView = true) {
       const entry = entryNumber();
       const eventName = `event${entry}`;
+      const saved3DView = reset3DView ? null : captureCurrent3DView();
       const file = await openFile(`${rootPath}?_=${Date.now()}`);
-      document.getElementById('view3d').replaceChildren();
+      const view3dElement = document.getElementById('view3d');
+      view3dElement.style.visibility = 'hidden';
+      view3dElement.replaceChildren();
       document.getElementById('view2d').replaceChildren();
+      view3dFramePainter = null;
+      view3dGeometryPainter = null;
 
       status.textContent = `Drawing ${eventName}`;
       let has3d = false;
@@ -560,23 +663,39 @@
       if (!has3d && !has2d) {
         throw new Error(`${eventName} has no drawable objects for the selected layers`);
       }
+      let viewPresetApplied = false;
       if (has3d) {
-        await redraw('view3d');
+        const applyView = saved3DView
+          ? () => restore3DView(saved3DView)
+          : () => applyDefault3DView();
+        viewPresetApplied = applyView();
+        if (viewPresetApplied) {
+          // TGeoPainter can finish a queued render after the final overlay.
+          // Reapply once after that queue has drained.
+          await new Promise(resolve => setTimeout(resolve, 150));
+          viewPresetApplied = applyView();
+        }
       }
-      if (has2d) {
-        await redraw('view2d');
-      }
-      status.textContent = `Loaded entry ${entry}, tracks ${trackCount}, vertices ${metadata.vertex_pairs || 0}`;
+      const viewStatus = has3d
+        ? (
+            viewPresetApplied
+              ? (saved3DView ? ', 3D view: preserved' : ', 3D view: upright target')
+              : ', 3D view: preset failed'
+          )
+        : '';
+      view3dElement.style.visibility = 'visible';
+      status.textContent = `Loaded entry ${entry}, tracks ${trackCount}, vertices ${metadata.vertex_pairs || 0}${viewStatus}`;
     }
 
     async function drawCurrentDisplay() {
       setBusy(true);
       try {
-        await drawEntry(lastDisplayFile, lastMetadata);
+        await drawEntry(lastDisplayFile, lastMetadata, false);
       } catch (err) {
         console.error(err);
         status.textContent = `Failed: ${err.message || err}`;
       } finally {
+        document.getElementById('view3d').style.visibility = 'visible';
         setBusy(false);
       }
     }
@@ -590,6 +709,7 @@
         console.error(err);
         status.textContent = `Failed: ${err.message || err}`;
       } finally {
+        document.getElementById('view3d').style.visibility = 'visible';
         setBusy(false);
       }
     }
