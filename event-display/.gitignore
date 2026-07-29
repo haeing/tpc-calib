@@ -1,8 +1,0 @@
-bin/
-build/
-lib/
-src/build/
-web/*.root
-.DS_Store
-__pycache__/
-*.pyc
