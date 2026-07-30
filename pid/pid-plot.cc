@@ -16,14 +16,15 @@
 #include "TLine.h"
 #include "TMath.h"
 #include "TObject.h"
+#include "TROOT.h"
 #include "TPad.h"
 #include "TPaveText.h"
 #include "TString.h"
 #include "TStyle.h"
 #include "TSystem.h"
 
-const std::vector<int> runnumbers = {2457, 2458, 2459, 2460, 2462, 2463, 2465, 2466, 2468};
-//const std::vector<int> runnumbers = {2447};
+//const std::vector<int> runnumbers = {2457, 2458, 2459, 2460, 2462, 2463, 2465, 2466, 2468};
+const std::vector<int> runnumbers = {2448};
 
 double min_abs_mom = 0.02;
 double max_abs_mom = 1.5;
@@ -250,7 +251,7 @@ void DrawSignedLogXAxis(double min_abs_mom, double max_abs_mom)
 
 } // namespace
 
-void pid_plot(const char* result_subdir = "physics-735-minlayer15",
+void pid_plot(const char* result_subdir = "physics-735",
               const char* tree_name = "tpc")
 {
   gROOT->SetBatch(kTRUE);
@@ -303,6 +304,9 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   std::vector<double>* dEdx = nullptr;
   std::vector<int>* charge = nullptr;
   std::vector<double>* chisqr = nullptr;
+  std::vector<int>* is_k18 = nullptr;
+  std::vector<int>* is_beam = nullptr;
+  std::vector<int>* is_accidental = nullptr;
   std::vector<std::vector<double>>* closeDistTpc = nullptr;
 
   bool ok = true;
@@ -310,6 +314,10 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   ok &= SetBranch(chain, "dEdx", &dEdx);
   ok &= SetBranch(chain, "charge", &charge);
   ok &= SetBranch(chain, "chisqr", &chisqr);
+  const bool has_is_k18 = chain.GetBranch("is_k18") != nullptr;
+  if (has_is_k18) ok &= SetBranch(chain, "is_k18", &is_k18);
+  ok &= SetBranch(chain, "is_beam", &is_beam);
+  ok &= SetBranch(chain, "is_accidental", &is_accidental);
   if (chain.GetBranch("closeDistTpc")) {
     ok &= SetBranch(chain, "closeDistTpc", &closeDistTpc);
   } else {
@@ -332,8 +340,24 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   h_dedx->GetXaxis()->SetTickLength(0.);
   h_dedx->GetXaxis()->SetTitleOffset(1.55);
 
+  TH2D* h_dedx_no_chisqr_non_k18 =
+    static_cast<TH2D*>(h_dedx->Clone("h_tpc_dedx_vs_mom_no_chisqr_is_k18_0"));
+  h_dedx_no_chisqr_non_k18->SetTitle(
+      "TPC dE/dx vs momentum, optional is_k18 = 0, no chisqr cut;#it{p/z} [GeV/#it{c}];TPC #LT#it{dE/dx}#GT (a.u.)");
+  h_dedx_no_chisqr_non_k18->Reset("ICES");
+  h_dedx_no_chisqr_non_k18->SetDirectory(nullptr);
+
+  TH2D* h_dedx_no_chisqr_all_flags_zero =
+    static_cast<TH2D*>(h_dedx->Clone("h_tpc_dedx_vs_mom_no_chisqr_beam_accidental_zero"));
+  h_dedx_no_chisqr_all_flags_zero->SetTitle(
+      "TPC dE/dx vs momentum, is_beam = is_accidental = 0, no chisqr cut;#it{p/z} [GeV/#it{c}];TPC #LT#it{dE/dx}#GT (a.u.)");
+  h_dedx_no_chisqr_all_flags_zero->Reset("ICES");
+  h_dedx_no_chisqr_all_flags_zero->SetDirectory(nullptr);
+
   Long64_t n_tracks = 0;
   Long64_t n_filled = 0;
+  Long64_t n_filled_no_chisqr_non_k18 = 0;
+  Long64_t n_filled_no_chisqr_all_flags_zero = 0;
   Long64_t n_zero_mom = 0;
   Long64_t n_cut = 0;
 
@@ -348,17 +372,19 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
       continue;
     }
 
-    if (!mom0 || !charge || !dEdx) continue;
+    if (!mom0 || !charge || !dEdx || !is_beam || !is_accidental) continue;
 
-    const size_t ntrack = std::min({mom0->size(), charge->size(), dEdx->size()});
+    size_t ntrack = std::min(
+        {mom0->size(), charge->size(), dEdx->size(), is_beam->size(),
+         is_accidental->size()});
+    if (has_is_k18) ntrack = std::min(ntrack, is_k18->size());
 
     for (size_t itrack = 0; itrack < ntrack; ++itrack) {
       ++n_tracks;
-
-      if (!HasTrackValue(mom0, itrack) ||
-          !HasTrackValue(charge, itrack) ||
-          !HasTrackValue(dEdx, itrack) ||
-          !HasTrackValue(chisqr, itrack)) {
+      if (!HasTrackValue(mom0, itrack) || !HasTrackValue(charge, itrack) ||
+          !HasTrackValue(dEdx, itrack) || !HasTrackValue(is_beam, itrack) ||
+          !HasTrackValue(is_accidental, itrack) ||
+          (has_is_k18 && !HasTrackValue(is_k18, itrack))) {
         ++n_cut;
         continue;
       }
@@ -366,27 +392,32 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
       const double poq = mom0->at(itrack) * charge->at(itrack);
       const double dedx = dEdx->at(itrack);
       const double abs_poq = TMath::Abs(poq);
-
       if (poq == 0.) {
         ++n_zero_mom;
         continue;
       }
-
       if (abs_poq < min_abs_mom || abs_poq > max_abs_mom ||
           dedx <= min_dedx || dedx >= max_dedx) {
         ++n_cut;
         continue;
       }
 
-      if (max_chisqr > 0. && chisqr->at(itrack) > max_chisqr) {
-        ++n_cut;
-        continue;
+      // In DSTs without is_k18, page 3 deliberately falls back to all tracks.
+      if (!has_is_k18 || is_k18->at(itrack) == 0) {
+        h_dedx_no_chisqr_non_k18->Fill(SignedLog10(poq, min_abs_mom), dedx);
+        ++n_filled_no_chisqr_non_k18;
+      }
+      if (is_beam->at(itrack) == 0 && is_accidental->at(itrack) == 0) {
+        h_dedx_no_chisqr_all_flags_zero->Fill(SignedLog10(poq, min_abs_mom), dedx);
+        ++n_filled_no_chisqr_all_flags_zero;
       }
 
+      // The all-track plot is also filled without a chisqr cut.
       h_dedx->Fill(SignedLog10(poq, min_abs_mom), dedx);
       ++n_filled;
     }
-  }
+
+    }
 
   TGraph* g_e_neg  = MakeBetheCurve("g_e_bethe_negative",  me,  -1, kBlack);
   TGraph* g_e_pos  = MakeBetheCurve("g_e_bethe_positive",  me,   1, kBlack);
@@ -401,7 +432,9 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   TPaveText *p = new TPaveText(0.1,0.1,0.9,0.9,"NDC");
   p->AddText("pid-plot.cc");
   p->AddText("TPC dEdx vs p*z plot in log scale");
-  p->AddText("chisqr < 2 cut");
+  p->AddText("page 2: all tracks, no chisqr cut");
+  p->AddText("page 3: is_k18 = 0; all tracks if is_k18 is unavailable");
+  p->AddText("page 4: is_beam = is_accidental = 0, no chisqr cut");
   p->AddText(Form("conversion factor = %.2f", conversion_factor));
   if (runnumbers.size() == 1)
     p->AddText(Form("run%05d", runnumbers.front()));
@@ -412,40 +445,61 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   p->Draw();
   SavePDF(c_info, output_pdf.Data(), true, false);
 
+  auto DrawPIDPanel = [&](TCanvas* canvas, TH2D* histogram,
+                          const char* selection_label) {
+    canvas->cd();
+    canvas->SetLogy();
+    canvas->SetLogz();
+    canvas->SetBottomMargin(0.20);
+    histogram->GetXaxis()->SetRangeUser(-xmax_log, xmax_log);
+    histogram->GetYaxis()->SetRangeUser(min_dedx, max_dedx);
+    histogram->Draw("colz");
+
+    TLine center_line(0., min_dedx, 0., max_dedx);
+    center_line.SetLineColor(kBlack);
+    center_line.SetLineWidth(1);
+    center_line.Draw("same");
+    g_e_neg->Draw("L same"); g_e_pos->Draw("L same");
+    g_pi_neg->Draw("L same"); g_pi_pos->Draw("L same");
+    g_k_neg->Draw("L same"); g_k_pos->Draw("L same");
+    g_p_neg->Draw("L same"); g_p_pos->Draw("L same");
+
+    auto* legend = new TLegend(0.72, 0.68, 0.80, 0.88);
+    legend->SetBorderSize(0);
+    legend->SetFillColorAlpha(kWhite, 0.75);
+    legend->SetTextSize(0.030);
+    legend->AddEntry(g_e_pos, "#it{e}", "l");
+    legend->AddEntry(g_pi_pos, "#pi", "l");
+    legend->AddEntry(g_k_pos, "#it{K}", "l");
+    legend->AddEntry(g_p_pos, "#it{p}", "l");
+    legend->Draw();
+
+    TLatex label;
+    label.SetNDC();
+    label.SetTextSize(0.035);
+    label.DrawLatex(0.14, 0.88, selection_label);
+    DrawSignedLogXAxis(min_abs_mom, max_abs_mom);
+  };
+
   TCanvas* c = new TCanvas("c_tpc_dedx_vs_mom", "TPC dE/dx vs momentum", 1000, 700);
-  c->SetLogy();
-  c->SetLogz();
-  c->SetBottomMargin(0.20);
-  h_dedx->GetXaxis()->SetRangeUser(-xmax_log, xmax_log);
-  h_dedx->GetYaxis()->SetRangeUser(min_dedx, max_dedx);
-  h_dedx->Draw("colz");
+  DrawPIDPanel(c, h_dedx, "all tracks, no #chi^{2} cut");
+  SavePDF(c, output_pdf.Data(), false, false);
 
-  TLine* center_line = new TLine(0., min_dedx, 0., max_dedx);
-  center_line->SetLineColor(kBlack);
-  center_line->SetLineWidth(1);
-  center_line->Draw("same");
+  TCanvas* c_no_chisqr_non_k18 = new TCanvas(
+      "c_tpc_dedx_vs_mom_no_chisqr_is_k18_0",
+      "TPC dE/dx vs momentum: optional is_k18 = 0, no chisqr cut", 1000, 700);
+  const char* second_selection = has_is_k18
+      ? "is_{k18} = 0, no #chi^{2} cut"
+      : "is_{k18} unavailable: all tracks, no #chi^{2} cut";
+  DrawPIDPanel(c_no_chisqr_non_k18, h_dedx_no_chisqr_non_k18, second_selection);
+  SavePDF(c_no_chisqr_non_k18, output_pdf.Data(), false, false);
 
-  g_e_neg->Draw("L same");
-  g_e_pos->Draw("L same");
-  g_pi_neg->Draw("L same");
-  g_pi_pos->Draw("L same");
-  g_k_neg->Draw("L same");
-  g_k_pos->Draw("L same");
-  g_p_neg->Draw("L same");
-  g_p_pos->Draw("L same");
-
-  TLegend* leg = new TLegend(0.72, 0.68, 0.8, 0.88);
-  leg->SetBorderSize(0);
-  leg->SetFillColorAlpha(kWhite, 0.75);
-  leg->SetTextSize(0.030);
-  leg->AddEntry(g_e_pos, "#it{e}", "l");
-  leg->AddEntry(g_pi_pos, "#pi", "l");
-  leg->AddEntry(g_k_pos, "#it{K}", "l");
-  leg->AddEntry(g_p_pos, "#it{p}", "l");
-  leg->Draw();
-
-  DrawSignedLogXAxis(min_abs_mom, max_abs_mom);
-  SavePDF(c, output_pdf.Data(), false, true);
+  TCanvas* c_no_chisqr_all_flags_zero = new TCanvas(
+      "c_tpc_dedx_vs_mom_no_chisqr_beam_accidental_zero",
+      "TPC dE/dx vs momentum: is_beam = is_accidental = 0, no chisqr cut", 1000, 700);
+  DrawPIDPanel(c_no_chisqr_all_flags_zero, h_dedx_no_chisqr_all_flags_zero,
+               "is_{beam} = is_{accidental} = 0, no #chi^{2} cut");
+  SavePDF(c_no_chisqr_all_flags_zero, output_pdf.Data(), false, true);
 
   TFile* fout = TFile::Open(output_root, "RECREATE");
   if (!fout || fout->IsZombie()) {
@@ -455,6 +509,8 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
 
   fout->cd();
   h_dedx->Write("", TObject::kOverwrite);
+  h_dedx_no_chisqr_non_k18->Write("", TObject::kOverwrite);
+  h_dedx_no_chisqr_all_flags_zero->Write("", TObject::kOverwrite);
   g_e_neg->Write("", TObject::kOverwrite);
   g_e_pos->Write("", TObject::kOverwrite);
   g_pi_neg->Write("", TObject::kOverwrite);
@@ -465,12 +521,18 @@ void pid_plot(const char* result_subdir = "physics-735-minlayer15",
   g_p_pos->Write("", TObject::kOverwrite);
   c_info->Write("", TObject::kOverwrite);
   c->Write("", TObject::kOverwrite);
+  c_no_chisqr_non_k18->Write("", TObject::kOverwrite);
+  c_no_chisqr_all_flags_zero->Write("", TObject::kOverwrite);
   fout->Close();
 
   std::cout << "pid_plot: input files = " << nfiles << std::endl;
   std::cout << "pid_plot: entries     = " << nentries << std::endl;
   std::cout << "pid_plot: tracks      = " << n_tracks << std::endl;
   std::cout << "pid_plot: filled      = " << n_filled << std::endl;
+  std::cout << "pid_plot: filled (is_k18=0, no chisqr cut) = "
+            << n_filled_no_chisqr_non_k18 << std::endl;
+  std::cout << "pid_plot: filled (is_beam=is_accidental=0, no chisqr cut) = "
+            << n_filled_no_chisqr_all_flags_zero << std::endl;
   std::cout << "pid_plot: zero p/z    = " << n_zero_mom << std::endl;
   std::cout << "pid_plot: cut/skipped = " << n_cut << std::endl;
   std::cout << "pid_plot: wrote " << output_pdf << std::endl;
