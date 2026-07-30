@@ -183,11 +183,11 @@ void k18_tpc_residual(int runNumber = 2448,
 
   TH1D hMomentumResidual(
       "hMomentumResidual",
-      "Momentum residual: TPC mom0 - Beam mom0_{k18};#Delta p = p_{TPC} - p_{Beam} [GeT/#it{c}];Counts",
+      "Momentum residual: TPC mom0 - Beam mom0_{k18};#Delta p = p_{TPC} - p_{Beam} [GeV/#it{c}];Counts",
       200, -0.5, 0.5);
   TH2D hMom0Correlation(
       "hMom0Correlation",
-      "TPC mom0 versus Beam mom0_{k18};p_{Beam} [GeT/#it{c}];p_{TPC} [GeT/#it{c}]",
+      "TPC mom0 versus Beam mom0_{k18};p_{Beam} [GeV/#it{c}];p_{TPC} [GeV/#it{c}]",
       100, 0.6, 0.8, 100, 0.6, 0.8);
 
   TH2D hDeltaXVsZ("hDeltaXVsZ",
