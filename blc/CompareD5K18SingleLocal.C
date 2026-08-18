@@ -154,7 +154,7 @@ void CompareD5K18SingleLocal()
   TH2D hDp2D("h_dp2D", ";p_{D5} [GeV/c];p_{K18} [GeV/c]", 200, 0.7, 0.8,200,0.7,0.8);
   TH1D hChi2NdfD5("h_chi2ndf_d5", ";(#chi^{2}/ndf)_{D5};Counts", 200, 0., 10.);
   TH1D hChi2NdfK18("h_chi2ndf_k18", ";(#chi^{2}/ndf)_{K18};Counts", 200, 0., 10.);
-  TH1D hDChi2Ndf("h_dchi2ndf", ";(#chi^{2}/ndf)_{D5}-(#chi^{2}/ndf)_{K18};Counts", 200, -0.001, 0.001);
+  TH1D hDChi2Ndf("h_dchi2ndf", ";(#chi^{2}/ndf)_{D5}-(#chi^{2}/ndf)_{K18};Counts", 200, -0.0001, 0.0001);
   TH1D hDChi2("h_dchi2", ";#chi^{2}_{D5}-#chi^{2}_{K18};Counts", 200, -5., 5.);
   TH1D hDeltaD5("h_delta_d5", ";#delta_{D5} [%];Counts", 200, -10., 10.);
   TH1D hDeltaK18("h_delta_k18", ";#delta_{K18} [%];Counts", 200, -10., 10.);
