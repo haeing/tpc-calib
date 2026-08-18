@@ -22,7 +22,7 @@
 using namespace std;
 
 const int NCobo = 8;
-const int runnumber = 2599;
+const int runnumber = 2680;
 const bool param_update = false;
 const bool auto_p1 = true;
 
@@ -247,7 +247,7 @@ void UpdateCoboParameter(const char* infile,
 }
 
 
-void cobo_clock(const char* result_subdir = "tpchit-test"){
+void cobo_clock(const char* result_subdir = "cobo-phase"){
   gROOT->SetBatch(kTRUE);
   const string result_dir = Form("result/%s", result_subdir);
   gSystem->mkdir(result_dir.c_str(), kTRUE);
@@ -412,8 +412,8 @@ void cobo_clock(const char* result_subdir = "tpchit-test"){
   fout->Close();
 
   if(param_update){
-    UpdateCoboParameter("param_history/TPCParam_e72_run02447_lasthit_2",
-			Form("param_history/TPCParam_e72_run0%d_lasthit",runnumber),
+    UpdateCoboParameter("param_history/TPCParam_e72_run02447_yoffset",
+			Form("param_history/TPCParam_e72_run0%d",runnumber),
 			p0_fit, p1_fit, NCobo);
   }
 }

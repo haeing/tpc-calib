@@ -9,9 +9,9 @@
 
 using namespace std;
 
-const int runnumber = 2594;
+const int runnumber = 2682;
 
-void y_offset_calib(const char* result_subdir = "tpchit-test")
+void y_offset_calib(const char* result_subdir = "physics-755")
 {
   gROOT->SetBatch(kTRUE);
   gStyle->SetOptStat(0);
@@ -21,10 +21,10 @@ void y_offset_calib(const char* result_subdir = "tpchit-test")
   gSystem->mkdir(result_dir.c_str(), kTRUE);
   gSystem->mkdir(param_dir.c_str(), kTRUE);
 
-  string outpdf = Form("result/%s/y-offset-calib-run0%d_0.pdf", result_subdir, runnumber);
-  string outroot = Form("result/%s/y-offset-calib-run0%d_0.root", result_subdir, runnumber);
-  string param_in = Form("param_history/%s/TPCParam_e72_run0%d_lasthit_0",result_subdir, runnumber);
-  string param_out = Form("param_history/%s/TPCParam_e72_run0%d_lasthit_1",result_subdir, runnumber);
+  string outpdf = Form("result/%s/y-offset-calib-run0%d_1.pdf", result_subdir, runnumber);
+  string outroot = Form("result/%s/y-offset-calib-run0%d_1.root", result_subdir, runnumber);
+  string param_in = Form("param_history/%s/TPCParam_e72_run0%d_1",result_subdir, runnumber);
+  string param_out = Form("param_history/%s/TPCParam_e72_run0%d_2",result_subdir, runnumber);
   string summary_out = Form("result/%s/y-offset-fit-run0%d_2.txt", result_subdir, runnumber);
 
   vector<double> res_offset(NumOfLayersTPC, 0.);
@@ -49,7 +49,7 @@ void y_offset_calib(const char* result_subdir = "tpchit-test")
   title->Draw();
   c1->Print((outpdf + "(").c_str());
 
-  TFile* file = new TFile(Form("/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/%s/run0%d_DstTPCHelixTracking.root",
+  TFile* file = new TFile(Form("/gpfs/group/had/sks/Users/haein/data/JPARC2025Nov_root/%s/run0%d_DstTPCK18HelixTracking.root",
                                result_subdir, runnumber));
   if(!file || file->IsZombie()){
     Error("y_offset_calib", "cannot open input ROOT file");

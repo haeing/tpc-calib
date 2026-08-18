@@ -26,7 +26,7 @@
 
   // Margins
   gStyle->SetPadTopMargin(0.05);
-  gStyle->SetPadBottomMargin(0.12);
+  gStyle->SetPadBottomMargin(0.15);
   gStyle->SetPadLeftMargin(0.13);
   gStyle->SetPadRightMargin(0.17);
 
